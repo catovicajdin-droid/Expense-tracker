@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.catovicajdin.expensetracker.data.CategoryIcons
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
-import com.catovicajdin.expensetracker.ui.theme.blendWithInk
 
 /** A 2px hairline rule, matching the design's `border-bottom:2px solid var(--color-divider)`. */
 @Composable
@@ -29,28 +28,16 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier, color: Color = Mat
     Text(text.uppercase(), style = MaterialTheme.typography.labelMedium, color = color, modifier = modifier)
 }
 
-/** Mirrors the design's `color-mix(in srgb, {{ color }} 55%, #201e1d)` used on every category dot/fill. */
-fun blendCategoryDot(category: CategoryEntity?): Color {
-    val base = category?.colorHex
+private fun categoryColor(category: CategoryEntity?): Color =
+    category?.colorHex
         ?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
         ?: Color(0xFF9E9E9E)
-    return blendWithInk(base)
-}
 
-/** The small colored square used everywhere a category is referenced in a compact row. */
-@Composable
-fun CategoryDot(category: CategoryEntity?, modifier: Modifier = Modifier, size: Dp = 8.dp) {
-    Box(modifier = modifier.size(size).background(blendCategoryDot(category)))
-}
-
-/** A tinted square carrying the category's emoji glyph - used where there's room for more than a dot (grid cells, pickers, the detail hero row). Always paired with the category name nearby, never standing in for it. */
+/** A tinted square carrying the category's emoji glyph - used everywhere a category is referenced, from compact list rows to grid cells and pickers. Always paired with the category name nearby, never standing in for it. */
 @Composable
 fun CategoryIconBadge(category: CategoryEntity?, modifier: Modifier = Modifier, size: Dp = 32.dp) {
-    val base = category?.colorHex
-        ?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
-        ?: Color(0xFF9E9E9E)
     Box(
-        modifier = modifier.size(size).background(base.copy(alpha = 0.18f)),
+        modifier = modifier.size(size).background(categoryColor(category).copy(alpha = 0.18f)),
         contentAlignment = Alignment.Center,
     ) {
         Text(CategoryIcons.iconFor(category?.name ?: ""), fontSize = (size.value * 0.5f).sp)

@@ -75,11 +75,3 @@ private val ModernistShapes = Shapes(
 fun ExpenseTrackerTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = ModernistColors, typography = ModernistTypography, shapes = ModernistShapes, content = content)
 }
-
-/** Mirrors the design's `color-mix(in srgb, X 55%, #201e1d)` - a category color darkened toward ink for small indicator dots. */
-fun blendWithInk(color: Color, fraction: Float = 0.55f): Color = Color(
-    red = color.red * fraction + ColorText.red * (1 - fraction),
-    green = color.green * fraction + ColorText.green * (1 - fraction),
-    blue = color.blue * fraction + ColorText.blue * (1 - fraction),
-    alpha = 1f,
-)

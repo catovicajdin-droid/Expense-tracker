@@ -30,7 +30,7 @@ import com.catovicajdin.expensetracker.ui.theme.ColorAccent
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
-import com.catovicajdin.expensetracker.ui.components.CategoryDot
+import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import com.catovicajdin.expensetracker.ui.components.formatAmount
@@ -210,7 +210,7 @@ private fun RecentRow(
             .clickable(onClick = onClick)
             .padding(20.dp, 12.dp),
     ) {
-        CategoryDot(category)
+        CategoryIconBadge(category, size = 28.dp)
         Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
             Text(category?.name ?: "Uncategorized", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
             Text(

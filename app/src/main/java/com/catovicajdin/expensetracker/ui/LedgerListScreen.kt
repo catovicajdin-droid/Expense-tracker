@@ -23,7 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.TransactionRow
-import com.catovicajdin.expensetracker.ui.components.CategoryDot
+import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
 import com.catovicajdin.expensetracker.ui.components.formatAmount
 import com.catovicajdin.expensetracker.ui.components.sourceLabel
@@ -119,7 +119,7 @@ private fun LedgerRow(
                 .clickable(onClick = onClick)
                 .padding(20.dp, 13.dp),
         ) {
-            CategoryDot(category)
+            CategoryIconBadge(category, size = 28.dp)
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(category?.name ?: "Uncategorized", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                 Text(
