@@ -18,11 +18,6 @@ credentials, no scraping, no server involved.
 
 ## Before you build this
 
-- **Verify the package name.** `Constants.INTESA_PACKAGE_NAME` is currently set to a best-effort
-  guess (`org.ping.intesasanpaolo.elba.mobile`) — it has **not** been confirmed against the real
-  app. On your phone: Settings → Apps → find the Intesa app → App info → Advanced, or run
-  `adb shell dumpsys package packages | grep -i intesa` while the phone is connected. Update the
-  constant if it doesn't match.
 - **Confirm the live notification text matches the parser.** The sample used to write
   `TransactionParser` came from the bank app's own in-app "Notifications Overview" history screen,
   not necessarily the exact text of the system-level push notification the phone receives — those
