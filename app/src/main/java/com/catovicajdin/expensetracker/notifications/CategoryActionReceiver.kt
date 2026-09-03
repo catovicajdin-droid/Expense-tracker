@@ -23,6 +23,7 @@ class CategoryActionReceiver : BroadcastReceiver() {
             try {
                 AppDatabase.get(context.applicationContext).transactionDao()
                     .assignCategory(transactionId, categoryId)
+                BudgetAlerts.checkCategory(context.applicationContext, categoryId)
                 context.getSystemService(NotificationManager::class.java).cancel(transactionId.toInt())
             } finally {
                 pendingResult.finish()

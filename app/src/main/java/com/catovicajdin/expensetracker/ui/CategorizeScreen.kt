@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
+import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import kotlinx.coroutines.launch
 
 @Composable
@@ -43,6 +44,7 @@ fun CategorizeScreen(transactionId: Long, onDone: () -> Unit) {
     fun assign(categoryId: Long) {
         scope.launch {
             db.transactionDao().assignCategory(transactionId, categoryId)
+            BudgetAlerts.checkCategory(context, categoryId)
             onDone()
         }
     }

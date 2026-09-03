@@ -55,7 +55,10 @@ object CategorizeNotifier {
             val label = if (category.id == suggested?.id) "★ ${category.name}" else category.name
             builder.addAction(0, label, categoryActionIntent(context, transactionId, category.id))
         }
-        builder.addAction(0, context.getString(R.string.categorize_more), morePendingIntent(context, transactionId))
+        // A 4th action button (e.g. "More") gets silently dropped on many devices, which cap visible
+        // notification actions at 3. Tapping the notification body itself isn't subject to that limit,
+        // so that's the "open full category list" affordance instead.
+        builder.setContentIntent(morePendingIntent(context, transactionId))
 
         context.getSystemService(NotificationManager::class.java).notify(transactionId.toInt(), builder.build())
     }

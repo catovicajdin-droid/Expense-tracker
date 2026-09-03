@@ -38,6 +38,7 @@ class IntesaNotificationListenerService : NotificationListenerService() {
             val transactionId = repository.ingest(sbn.packageName, title, body, postedAt)
             if (transactionId != null) {
                 CategorizeNotifier.notify(applicationContext, transactionId)
+                BudgetAlerts.checkOverall(applicationContext)
             }
         }
     }

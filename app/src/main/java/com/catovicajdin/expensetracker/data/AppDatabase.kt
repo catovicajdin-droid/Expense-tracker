@@ -7,22 +7,34 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.catovicajdin.expensetracker.data.dao.BudgetDao
 import com.catovicajdin.expensetracker.data.dao.CategoryDao
 import com.catovicajdin.expensetracker.data.dao.RawNotificationDao
 import com.catovicajdin.expensetracker.data.dao.TransactionDao
+import com.catovicajdin.expensetracker.data.entity.BudgetAlertEntity
+import com.catovicajdin.expensetracker.data.entity.CategoryBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
+import com.catovicajdin.expensetracker.data.entity.MonthlyBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.RawNotificationEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 
 @Database(
-    entities = [RawNotificationEntity::class, TransactionEntity::class, CategoryEntity::class],
-    version = 2,
+    entities = [
+        RawNotificationEntity::class,
+        TransactionEntity::class,
+        CategoryEntity::class,
+        MonthlyBudgetEntity::class,
+        CategoryBudgetEntity::class,
+        BudgetAlertEntity::class,
+    ],
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun rawNotificationDao(): RawNotificationDao
     abstract fun transactionDao(): TransactionDao
     abstract fun categoryDao(): CategoryDao
+    abstract fun budgetDao(): BudgetDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null

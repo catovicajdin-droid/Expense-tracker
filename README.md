@@ -18,7 +18,14 @@ credentials, no scraping, no server involved.
    transaction had the exact same amount and was already categorized, that category is suggested
    first (marked with a ★), both in the notification and at the top of the in-app category list.
 5. The transaction list supports combinable filters (category, date range, min/max amount) — all
-   selected filters apply together (AND), not one-at-a-time.
+   selected filters apply together (AND), not one-at-a-time. Tapping a transaction's category icon
+   opens a dropdown to reassign it.
+6. The **Budget** screen (from the transaction list) tracks a monthly overall budget plus per-category
+   budgets, auto-calculated against real spend as transactions come in - browse other months with the
+   Prev/Next controls. A category with no budget set yet, when a prior month had one, offers a
+   "use last month's" shortcut. A "Where your money goes" breakdown ranks categories by spend with
+   percentages. Crossing 50%/75% of the overall or any category budget fires a one-time-per-month
+   notification (`BudgetAlerts`).
 
 ## Before you build this
 

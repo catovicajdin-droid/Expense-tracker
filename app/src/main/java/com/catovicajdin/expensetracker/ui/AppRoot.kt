@@ -23,8 +23,12 @@ fun AppRoot(
             when (screen) {
                 is Screen.TransactionList -> TransactionListScreen(
                     onOpenNeedsReview = { onNavigate(Screen.NeedsReview) },
+                    onOpenBudget = { onNavigate(Screen.Budget) },
                 )
                 is Screen.NeedsReview -> NeedsReviewScreen(
+                    onBack = { onNavigate(Screen.TransactionList) },
+                )
+                is Screen.Budget -> BudgetScreen(
                     onBack = { onNavigate(Screen.TransactionList) },
                 )
                 is Screen.Categorize -> CategorizeScreen(

@@ -8,6 +8,7 @@ object Constants {
     const val NOTIFICATION_TITLE_TRANSACTION = "Nova transakcija"
 
     const val CHANNEL_ID_CATEGORIZE = "categorize_transaction"
+    const val CHANNEL_ID_BUDGET_ALERT = "budget_alert"
 
     /** Bump this whenever TransactionParser's regex changes, so needs-review rows are traceable to a format break. */
     const val PARSER_VERSION = 1

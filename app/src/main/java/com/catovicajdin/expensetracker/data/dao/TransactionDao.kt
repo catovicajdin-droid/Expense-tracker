@@ -3,6 +3,7 @@ package com.catovicajdin.expensetracker.data.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import com.catovicajdin.expensetracker.data.CategoryTotal
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -46,4 +47,23 @@ interface TransactionDao {
 
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE id = :id")
     suspend fun assignCategory(id: Long, categoryId: Long)
+
+    @Query(
+        """
+        SELECT categoryId, SUM(amount) as total
+        FROM transactions
+        WHERE postedAt BETWEEN :fromMillis AND :toMillis AND categoryId IS NOT NULL
+        GROUP BY categoryId
+        ORDER BY total DESC
+        """
+    )
+    fun categoryTotals(fromMillis: Long, toMillis: Long): Flow<List<CategoryTotal>>
+
+    @Query(
+        """
+        SELECT COALESCE(SUM(amount), 0.0) FROM transactions
+        WHERE postedAt BETWEEN :fromMillis AND :toMillis
+        """
+    )
+    fun totalSpent(fromMillis: Long, toMillis: Long): Flow<Double>
 }

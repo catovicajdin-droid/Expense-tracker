@@ -1,6 +1,8 @@
 package com.catovicajdin.expensetracker.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -16,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,13 +29,16 @@ import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
+import com.catovicajdin.expensetracker.notifications.BudgetAlerts
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 @Composable
-fun TransactionListScreen(onOpenNeedsReview: () -> Unit) {
+fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Unit) {
     val context = LocalContext.current
     val db = AppDatabase.get(context)
+    val scope = rememberCoroutineScope()
     val categories by db.categoryDao().all().collectAsState(initial = emptyList())
     var filter by remember { mutableStateOf(TransactionFilter()) }
     val transactions by db.transactionDao().filtered(
@@ -43,7 +51,10 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit) {
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TextButton(onClick = onOpenNeedsReview) { Text("Needs review") }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = onOpenNeedsReview) { Text("Needs review") }
+            TextButton(onClick = onOpenBudget) { Text("Budget") }
+        }
         FilterBar(categories = categories, filter = filter, onFilterChange = { filter = it })
         HorizontalDivider()
         LazyColumn {
@@ -51,7 +62,14 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit) {
                 TransactionRow(
                     transaction = transaction,
                     category = categories.find { it.id == transaction.categoryId },
+                    categories = categories,
                     dateFormat = dateFormat,
+                    onReassign = { categoryId ->
+                        scope.launch {
+                            db.transactionDao().assignCategory(transaction.id, categoryId)
+                            BudgetAlerts.checkCategory(context, categoryId)
+                        }
+                    },
                 )
                 HorizontalDivider()
             }
@@ -63,8 +81,12 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit) {
 private fun TransactionRow(
     transaction: TransactionEntity,
     category: CategoryEntity?,
+    categories: List<CategoryEntity>,
     dateFormat: SimpleDateFormat,
+    onReassign: (Long) -> Unit,
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -73,7 +95,22 @@ private fun TransactionRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CategoryAvatar(category)
+            Box {
+                Box(modifier = Modifier.clickable { expanded = true }) {
+                    CategoryAvatar(category)
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    categories.forEach { candidate ->
+                        DropdownMenuItem(
+                            text = { Text(candidate.name) },
+                            onClick = {
+                                onReassign(candidate.id)
+                                expanded = false
+                            },
+                        )
+                    }
+                }
+            }
             Column(modifier = Modifier.padding(start = 12.dp)) {
                 Text(category?.name ?: "Uncategorized")
                 Text(dateFormat.format(transaction.postedAt))
