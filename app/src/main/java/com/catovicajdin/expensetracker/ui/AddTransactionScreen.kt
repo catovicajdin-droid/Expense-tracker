@@ -42,7 +42,7 @@ import com.catovicajdin.expensetracker.data.NotificationRepository
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.parseAmountInput
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
-import com.catovicajdin.expensetracker.ui.components.CategoryDot
+import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import kotlinx.coroutines.launch
@@ -134,7 +134,7 @@ fun AddTransactionScreen(
             SectionLabel("Category", modifier = Modifier.padding(20.dp, 14.dp, 20.dp, 6.dp))
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).height((((categories.size + 1) / 2) * 52).dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).height((((categories.size + 1) / 2) * 60).dp),
             ) {
                 items(categories) { category ->
                     CategoryPickButton(
@@ -208,7 +208,7 @@ private fun CategoryPickButton(category: CategoryEntity, selected: Boolean, onCl
             .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background)
             .padding(16.dp, 14.dp),
     ) {
-        CategoryDot(category)
+        CategoryIconBadge(category, size = 24.dp)
         Text(
             category.name,
             style = MaterialTheme.typography.labelLarge,

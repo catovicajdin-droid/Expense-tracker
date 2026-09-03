@@ -32,10 +32,6 @@ fun AppRoot(
             when (screen) {
                 is Screen.Home -> HomeScreen(
                     onOpenLedger = { onNavigate(Screen.Ledger) },
-                    onOpenTagLedger = { tagId ->
-                        filter = TransactionFilter(tagIds = setOf(tagId))
-                        onNavigate(Screen.Ledger)
-                    },
                     onOpenBudget = { onNavigate(Screen.BudgetDashboard) },
                     onOpenAdd = { onNavigate(Screen.AddTransaction()) },
                     onOpenReview = { onNavigate(Screen.NeedsReview) },
@@ -56,7 +52,7 @@ fun AppRoot(
                 is Screen.BudgetDashboard -> BudgetDashboardScreen(
                     onBack = { onNavigate(Screen.Home) },
                     onOpenCategoryLedger = { categoryId ->
-                        filter = TransactionFilter(categoryId = categoryId)
+                        filter = TransactionFilter(categoryIds = setOf(categoryId))
                         onNavigate(Screen.Ledger)
                     },
                     onOpenLedger = { onNavigate(Screen.Ledger) },

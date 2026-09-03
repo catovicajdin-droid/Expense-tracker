@@ -1,6 +1,7 @@
 package com.catovicajdin.expensetracker.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -29,8 +29,8 @@ import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
+import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
-import com.catovicajdin.expensetracker.ui.components.blendCategoryDot
 import com.catovicajdin.expensetracker.ui.components.formatAmount
 
 @Composable
@@ -137,6 +137,7 @@ private fun BudgetCellView(cell: BudgetCell, onClick: () -> Unit) {
         modifier = Modifier
             .clickable(onClick = onClick)
             .height(132.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outline)
             .padding(12.dp),
     ) {
         Box(
@@ -148,13 +149,7 @@ private fun BudgetCellView(cell: BudgetCell, onClick: () -> Unit) {
         )
         Column(modifier = Modifier.fillMaxSize()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .padding(end = 6.dp)
-                        .height(8.dp)
-                        .width(8.dp)
-                        .background(blendCategoryDot(cell.category)),
-                )
+                CategoryIconBadge(cell.category, size = 24.dp, modifier = Modifier.padding(end = 6.dp))
                 Text(cell.category.name, style = MaterialTheme.typography.labelLarge)
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Bottom) {

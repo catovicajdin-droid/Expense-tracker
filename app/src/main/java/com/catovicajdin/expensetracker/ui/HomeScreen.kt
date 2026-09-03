@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -24,9 +21,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.catovicajdin.expensetracker.ui.theme.Accent800
+import com.catovicajdin.expensetracker.ui.theme.ColorAccent
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
@@ -40,7 +40,6 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     onOpenLedger: () -> Unit,
-    onOpenTagLedger: (Long) -> Unit,
     onOpenBudget: () -> Unit,
     onOpenAdd: () -> Unit,
     onOpenReview: () -> Unit,
@@ -59,7 +58,6 @@ fun HomeScreen(
     val lastSpent by db.transactionDao().totalSpent(lastRange.first, lastRange.second).collectAsState(initial = 0.0)
     val monthlyBudget by db.budgetDao().monthlyBudgetFlow(thisMonth).collectAsState(initial = null)
     val needsReviewRows by db.rawNotificationDao().needsReview().collectAsState(initial = emptyList())
-    val tagTotals by db.tagDao().tagTotals(thisRange.first, thisRange.second).collectAsState(initial = emptyList())
     val recent by db.transactionDao().recent(8).collectAsState(initial = emptyList())
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
@@ -90,7 +88,7 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.secondary,
                     )
                 }
-                BudgetBar(fraction = (spent / budget).toFloat(), height = 14.dp, modifier = Modifier.padding(top = 10.dp))
+                BudgetBar(fraction = (spent / budget).toFloat(), height = 14.dp, gradient = true, modifier = Modifier.padding(top = 10.dp))
                 Text(
                     "${MonthRange.displayLabel(lastMonth)} ${formatAmount(lastSpent)}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -118,36 +116,6 @@ fun HomeScreen(
                     color = MaterialTheme.colorScheme.onSecondary,
                 )
                 Text("Open →", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondary)
-            }
-            Divider2()
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(20.dp, 14.dp, 20.dp, 8.dp),
-        ) {
-            SectionLabel("Tags")
-        }
-        if (tagTotals.isNotEmpty()) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.height((((tagTotals.size + 1) / 2) * 76).dp),
-            ) {
-                items(tagTotals) { tag ->
-                    Column(
-                        modifier = Modifier
-                            .clickable { onOpenTagLedger(tag.tagId) }
-                            .background(MaterialTheme.colorScheme.background)
-                            .padding(20.dp, 11.dp),
-                    ) {
-                        Text("#${tag.tagName}", style = MaterialTheme.typography.labelLarge)
-                        Text(formatAmount(tag.total), style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "${tag.count} tx",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
             }
             Divider2()
         }
@@ -207,13 +175,23 @@ fun HomeScreen(
 }
 
 @Composable
-private fun BudgetBar(fraction: Float, height: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
+private fun BudgetBar(
+    fraction: Float,
+    height: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+    gradient: Boolean = false,
+) {
+    val fillModifier = if (gradient) {
+        Modifier.background(Brush.horizontalGradient(listOf(Accent800, ColorAccent)))
+    } else {
+        Modifier.background(MaterialTheme.colorScheme.secondary)
+    }
     Box(modifier = modifier.fillMaxWidth().height(height).background(MaterialTheme.colorScheme.surfaceVariant)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(fraction.coerceIn(0f, 1f))
                 .height(height)
-                .background(MaterialTheme.colorScheme.secondary),
+                .then(fillModifier),
         )
     }
 }

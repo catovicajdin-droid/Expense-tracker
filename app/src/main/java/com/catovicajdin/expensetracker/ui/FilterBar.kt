@@ -1,6 +1,7 @@
 package com.catovicajdin.expensetracker.ui
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,9 +13,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.data.parseAmountInput
+import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -41,34 +42,27 @@ fun FilterBar(
     filter: TransactionFilter,
     onFilterChange: (TransactionFilter) -> Unit,
 ) {
-    var categoryExpanded by remember { mutableStateOf(false) }
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Box {
-                TextButton(onClick = { categoryExpanded = true }) {
-                    Text(categories.find { it.id == filter.categoryId }?.name ?: "All categories")
-                }
-                DropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text("All categories") },
-                        onClick = {
-                            onFilterChange(filter.copy(categoryId = null))
-                            categoryExpanded = false
+        if (categories.isNotEmpty()) {
+            SectionLabel("Categories", modifier = Modifier.padding(bottom = 6.dp))
+            LazyRow {
+                items(categories) { category ->
+                    CategoryFilterChip(
+                        category = category,
+                        selected = filter.categoryIds.contains(category.id),
+                        onToggle = {
+                            val newIds = if (filter.categoryIds.contains(category.id)) {
+                                filter.categoryIds - category.id
+                            } else {
+                                filter.categoryIds + category.id
+                            }
+                            onFilterChange(filter.copy(categoryIds = newIds))
                         },
                     )
-                    categories.forEach { category ->
-                        DropdownMenuItem(
-                            text = { Text(category.name) },
-                            onClick = {
-                                onFilterChange(filter.copy(categoryId = category.id))
-                                categoryExpanded = false
-                            },
-                        )
-                    }
                 }
             }
         }
@@ -158,5 +152,22 @@ fun FilterBar(
             },
             dismissButton = { TextButton(onClick = { showToPicker = false }) { Text("Cancel") } },
         ) { DatePicker(state = state) }
+    }
+}
+
+@Composable
+private fun CategoryFilterChip(category: CategoryEntity, selected: Boolean, onToggle: () -> Unit) {
+    val background = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val content = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Row(
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        modifier = Modifier
+            .padding(end = 8.dp)
+            .clickable(onClick = onToggle)
+            .background(background)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(category.name, color = content)
     }
 }

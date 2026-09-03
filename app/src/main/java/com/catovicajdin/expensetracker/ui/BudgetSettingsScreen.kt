@@ -39,7 +39,7 @@ import com.catovicajdin.expensetracker.data.parseAmountInput
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import com.catovicajdin.expensetracker.ui.charts.CategoryDonutChart
 import com.catovicajdin.expensetracker.ui.charts.DonutEntry
-import com.catovicajdin.expensetracker.ui.components.CategoryDot
+import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import com.catovicajdin.expensetracker.ui.components.formatAmount
@@ -204,7 +204,7 @@ private fun CategoryBudgetRow(
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CategoryDot(category, size = 10.dp)
+            CategoryIconBadge(category, size = 32.dp)
             Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
                 Text(category.name, style = MaterialTheme.typography.bodyLarge)
                 if (budget != null && budget > 0.0) {

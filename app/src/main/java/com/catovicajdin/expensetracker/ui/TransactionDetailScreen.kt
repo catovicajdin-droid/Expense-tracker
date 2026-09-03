@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
 import com.catovicajdin.expensetracker.data.TransactionRow
-import com.catovicajdin.expensetracker.ui.components.CategoryDot
+import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import com.catovicajdin.expensetracker.ui.components.formatAmount
@@ -96,8 +96,8 @@ fun TransactionDetailScreen(
                 modifier = Modifier.padding(top = 8.dp),
             )
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
-                CategoryDot(category, size = 10.dp)
-                Text(category?.name ?: "Uncategorized", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 8.dp))
+                CategoryIconBadge(category, size = 40.dp)
+                Text(category?.name ?: "Uncategorized", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 10.dp))
             }
         }
         Divider2()

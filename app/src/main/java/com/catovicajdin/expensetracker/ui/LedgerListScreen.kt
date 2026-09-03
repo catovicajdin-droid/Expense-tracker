@@ -44,7 +44,8 @@ fun LedgerListScreen(
     val tags by db.tagDao().all().collectAsState(initial = emptyList())
     val tagNamesByTransaction by db.tagDao().allTransactionTagNames().collectAsState(initial = emptyList())
     val rows by db.transactionDao().filteredWithSource(
-        categoryId = filter.categoryId,
+        categoryIds = filter.categoryIds.toList(),
+        categoryCount = filter.categoryIds.size,
         fromMillis = filter.fromMillis,
         toMillis = filter.toMillis,
         minAmount = filter.minAmount,
@@ -149,7 +150,11 @@ private fun filterSummary(
     tags: List<com.catovicajdin.expensetracker.data.entity.TagEntity>,
 ): String {
     val parts = mutableListOf<String>()
-    parts += categories.find { it.id == filter.categoryId }?.name ?: "All categories"
+    parts += if (filter.categoryIds.isEmpty()) {
+        "All categories"
+    } else {
+        categories.filter { filter.categoryIds.contains(it.id) }.joinToString(", ") { it.name }
+    }
     if (filter.tagIds.isNotEmpty()) {
         val names = tags.filter { filter.tagIds.contains(it.id) }.joinToString(", ") { it.name }
         val mode = if (filter.tagMatchMode == TagMatchMode.ALL) "all" else "any"

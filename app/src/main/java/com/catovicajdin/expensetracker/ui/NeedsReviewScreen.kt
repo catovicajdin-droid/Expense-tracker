@@ -25,7 +25,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.NotificationRepository
-import com.catovicajdin.expensetracker.ui.components.CategoryDot
+import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -100,7 +100,7 @@ fun NeedsReviewScreen(
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp, 6.dp),
                                 modifier = Modifier.padding(end = 8.dp),
                             ) {
-                                CategoryDot(category, size = 8.dp)
+                                CategoryIconBadge(category, size = 18.dp)
                                 Text(
                                     category.name,
                                     style = MaterialTheme.typography.labelMedium,

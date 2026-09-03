@@ -7,9 +7,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.catovicajdin.expensetracker.data.CategoryIcons
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.ui.theme.blendWithInk
 
@@ -35,8 +39,22 @@ fun blendCategoryDot(category: CategoryEntity?): Color {
 
 /** The small colored square used everywhere a category is referenced in a compact row. */
 @Composable
-fun CategoryDot(category: CategoryEntity?, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 8.dp) {
+fun CategoryDot(category: CategoryEntity?, modifier: Modifier = Modifier, size: Dp = 8.dp) {
     Box(modifier = modifier.size(size).background(blendCategoryDot(category)))
+}
+
+/** A tinted square carrying the category's emoji glyph - used where there's room for more than a dot (grid cells, pickers, the detail hero row). Always paired with the category name nearby, never standing in for it. */
+@Composable
+fun CategoryIconBadge(category: CategoryEntity?, modifier: Modifier = Modifier, size: Dp = 32.dp) {
+    val base = category?.colorHex
+        ?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
+        ?: Color(0xFF9E9E9E)
+    Box(
+        modifier = modifier.size(size).background(base.copy(alpha = 0.18f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(CategoryIcons.iconFor(category?.name ?: ""), fontSize = (size.value * 0.5f).sp)
+    }
 }
 
 fun formatAmount(amount: Double): String = "%.2f".format(amount)

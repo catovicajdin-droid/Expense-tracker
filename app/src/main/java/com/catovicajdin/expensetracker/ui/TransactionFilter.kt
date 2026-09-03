@@ -3,7 +3,7 @@ package com.catovicajdin.expensetracker.ui
 enum class TagMatchMode { ANY, ALL }
 
 data class TransactionFilter(
-    val categoryId: Long? = null,
+    val categoryIds: Set<Long> = emptySet(),
     val fromMillis: Long? = null,
     val toMillis: Long? = null,
     val minAmount: Double? = null,
