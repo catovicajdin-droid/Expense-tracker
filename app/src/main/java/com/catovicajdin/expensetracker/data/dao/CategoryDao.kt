@@ -19,4 +19,7 @@ interface CategoryDao {
 
     @Query("SELECT * FROM categories WHERE isQuickPick = 1 ORDER BY sortOrder LIMIT :limit")
     suspend fun quickPicks(limit: Int): List<CategoryEntity>
+
+    @Query("UPDATE categories SET colorHex = :colorHex WHERE name = :name")
+    suspend fun updateColor(name: String, colorHex: String)
 }

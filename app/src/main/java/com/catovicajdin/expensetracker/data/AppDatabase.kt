@@ -8,6 +8,9 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.catovicajdin.expensetracker.data.dao.BudgetDao
 import com.catovicajdin.expensetracker.data.dao.CategoryDao
 import com.catovicajdin.expensetracker.data.dao.RawNotificationDao
@@ -58,7 +61,16 @@ abstract class AppDatabase : RoomDatabase() {
                     // Migration(oldVersion, newVersion) added below, so existing data survives updates.
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
-                    .also { instance = it }
+                    .also { db ->
+                        instance = db
+                        // Data-only palette refresh (no schema change, so no version bump needed) -
+                        // keeps existing installs' category colors in sync with CategoryColors.
+                        CoroutineScope(Dispatchers.IO).launch {
+                            CategoryColors.byName.forEach { (name, color) ->
+                                db.categoryDao().updateColor(name, color)
+                            }
+                        }
+                    }
             }
 
         /** v1 -> v2: categories gained a colorHex column - backfill each seeded category's real color. */
@@ -153,34 +165,33 @@ abstract class AppDatabase : RoomDatabase() {
             val name: String,
             val isQuickPick: Boolean,
             val sortOrder: Int,
-            val colorHex: String,
         )
 
         private object SeedDefaultCategories : Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
                 val defaults = listOf(
-                    CategorySeed("Phone Bill", false, 0, "#EF5350"),
-                    CategorySeed("Misc", false, 1, "#78909C"),
-                    CategorySeed("Food ordering", true, 2, "#FF7043"),
-                    CategorySeed("Subscriptions", false, 3, "#5C6BC0"),
-                    CategorySeed("Padel", false, 4, "#9CCC65"),
-                    CategorySeed("Groceries", true, 5, "#26A69A"),
-                    CategorySeed("Coffee", true, 6, "#8D6E63"),
-                    CategorySeed("Gas Bill", false, 7, "#42A5F5"),
-                    CategorySeed("Parents", false, 8, "#66BB6A"),
-                    CategorySeed("Donating", false, 9, "#EC407A"),
-                    CategorySeed("Bills", false, 10, "#AB47BC"),
-                    CategorySeed("Date nights", false, 11, "#D4E157"),
-                    CategorySeed("Pets", false, 12, "#FFA726"),
-                    CategorySeed("DM", false, 13, "#FFCA28"),
+                    CategorySeed("Phone Bill", false, 0),
+                    CategorySeed("Misc", false, 1),
+                    CategorySeed("Food ordering", true, 2),
+                    CategorySeed("Subscriptions", false, 3),
+                    CategorySeed("Padel", false, 4),
+                    CategorySeed("Groceries", true, 5),
+                    CategorySeed("Coffee", true, 6),
+                    CategorySeed("Gas Bill", false, 7),
+                    CategorySeed("Parents", false, 8),
+                    CategorySeed("Donating", false, 9),
+                    CategorySeed("Bills", false, 10),
+                    CategorySeed("Date nights", false, 11),
+                    CategorySeed("Pets", false, 12),
+                    CategorySeed("DM", false, 13),
                 )
                 defaults.forEach { seed ->
                     val values = ContentValues().apply {
                         put("name", seed.name)
                         put("isQuickPick", seed.isQuickPick)
                         put("sortOrder", seed.sortOrder)
-                        put("colorHex", seed.colorHex)
+                        put("colorHex", CategoryColors.byName[seed.name])
                     }
                     db.insert("categories", SQLiteDatabase.CONFLICT_IGNORE, values)
                 }

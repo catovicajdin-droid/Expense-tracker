@@ -43,6 +43,17 @@ credentials, no scraping, no server involved.
    (Note: `TransactionEntity.notes` and the schema column both still exist but are intentionally
    unused - tags replaced free-text notes, and dropping the column would need a riskier
    table-recreation migration for no real benefit.)
+9. The transaction list opens on a summary card: this month's total spend plus a two-bar
+   comparison against last month (`MonthComparisonBarChart`), both custom-drawn on `Canvas` rather
+   than a third-party charting library - the app already hit two version-mismatch build breaks
+   this session from external Compose APIs, so new chart code stays dependency-free. The Budget
+   screen's category breakdown is a donut chart with a legend (`CategoryDonutChart`) instead of a
+   plain progress-bar list. The 14 category colors were regenerated and validated against the
+   dataviz skill's CVD/contrast checks (`scripts/validate_palette.js`, adjacent-pair mode, dark
+   surface) - lightness band and chroma floor both pass; the one remaining borderline pair is
+   covered by the fact that category color is never shown without its name and letter avatar
+   alongside it. New installs get the palette from `CategoryColors.kt`; existing installs get it
+   backfilled at startup by name (a plain data UPDATE, not a schema migration).
 
 ## Before you build this
 

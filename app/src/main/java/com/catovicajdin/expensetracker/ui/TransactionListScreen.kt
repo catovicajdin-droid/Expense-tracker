@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,14 +28,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
+import com.catovicajdin.expensetracker.data.MonthRange
 import com.catovicajdin.expensetracker.data.NotificationRepository
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
+import com.catovicajdin.expensetracker.ui.charts.MonthComparisonBarChart
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -65,6 +70,15 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
         tagNamesByTransaction.groupBy({ it.transactionId }, valueTransform = { it.tagName })
     }
 
+    val thisMonth = remember { MonthRange.current() }
+    val lastMonth = remember { MonthRange.previous(thisMonth) }
+    val thisMonthRange = remember { MonthRange.millisRange(thisMonth) }
+    val lastMonthRange = remember { MonthRange.millisRange(lastMonth) }
+    val thisMonthSpent by db.transactionDao().totalSpent(thisMonthRange.first, thisMonthRange.second)
+        .collectAsState(initial = 0.0)
+    val lastMonthSpent by db.transactionDao().totalSpent(lastMonthRange.first, lastMonthRange.second)
+        .collectAsState(initial = 0.0)
+
     fun deleteTag(tag: TagEntity) {
         scope.launch { db.tagDao().delete(tag.id) }
     }
@@ -74,6 +88,23 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
             TextButton(onClick = onOpenNeedsReview) { Text("Needs review") }
             TextButton(onClick = onOpenBudget) { Text("Budget") }
             TextButton(onClick = { showAddDialog = true }) { Text("+ Add") }
+        }
+        Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Spent this month", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "%.2f BAM".format(thisMonthSpent),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                MonthComparisonBarChart(
+                    lastMonthLabel = MonthRange.displayLabel(lastMonth),
+                    lastMonthAmount = lastMonthSpent,
+                    thisMonthLabel = MonthRange.displayLabel(thisMonth),
+                    thisMonthAmount = thisMonthSpent,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
         }
         FilterBar(categories = categories, tags = tags, filter = filter, onFilterChange = { filter = it })
         HorizontalDivider()
@@ -188,7 +219,11 @@ private fun TransactionRow(
             }
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text("${transaction.amount} ${transaction.currency}")
+            Text(
+                "${transaction.amount} ${transaction.currency}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
             Row {
                 TextButton(onClick = onEdit) { Text("Edit") }
                 TextButton(onClick = { showDeleteConfirm = true }) { Text("Delete") }

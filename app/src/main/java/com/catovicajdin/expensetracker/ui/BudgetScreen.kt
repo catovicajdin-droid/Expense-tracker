@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -38,6 +39,8 @@ import com.catovicajdin.expensetracker.data.entity.CategoryBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.MonthlyBudgetEntity
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
+import com.catovicajdin.expensetracker.ui.charts.CategoryDonutChart
+import com.catovicajdin.expensetracker.ui.charts.DonutEntry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -71,7 +74,6 @@ fun BudgetScreen(onBack: () -> Unit) {
     val spentByCategory = remember(categoryTotals) { categoryTotals.associate { it.categoryId to it.total } }
     val budgetByCategory = remember(categoryBudgets) { categoryBudgets.associate { it.categoryId to it.amount } }
     val sortedTotals = remember(categoryTotals) { categoryTotals.sortedByDescending { it.total } }
-    val grandTotal = remember(sortedTotals) { sortedTotals.sumOf { it.total } }
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         item { TextButton(onClick = onBack) { Text("Back") } }
@@ -129,10 +131,26 @@ fun BudgetScreen(onBack: () -> Unit) {
             )
         }
 
-        items(sortedTotals) { entry ->
-            val category = categories.find { it.id == entry.categoryId }
-            val percent = if (grandTotal > 0) (entry.total / grandTotal * 100) else 0.0
-            SpendBreakdownRow(category = category, amount = entry.total, percent = percent)
+        item {
+            if (sortedTotals.isEmpty()) {
+                Text(
+                    "Categorize a few transactions to see the breakdown here.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    val donutEntries = sortedTotals.map { entry ->
+                        val category = categories.find { it.id == entry.categoryId }
+                        DonutEntry(
+                            label = category?.name ?: "Uncategorized",
+                            amount = entry.total,
+                            colorHex = category?.colorHex ?: "#9E9E9E",
+                        )
+                    }
+                    CategoryDonutChart(entries = donutEntries, modifier = Modifier.padding(16.dp))
+                }
+            }
         }
     }
 }
@@ -154,24 +172,29 @@ private fun MonthSelector(yearMonth: String, onPrevious: () -> Unit, onNext: () 
 private fun OverallBudgetCard(budget: Double?, spent: Double, onSave: (Double) -> Unit) {
     var text by remember(budget) { mutableStateOf(budget?.toString() ?: "") }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-        Text("Overall budget", style = MaterialTheme.typography.titleMedium)
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text("Monthly budget") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = { parseAmountInput(text)?.let(onSave) }) { Text("Save") }
-        }
-        if (budget != null && budget > 0.0) {
-            val percent = (spent / budget * 100).toInt()
-            Text("Spent ${spent.formatAmount()} of ${budget.formatAmount()} ($percent%)", modifier = Modifier.padding(top = 8.dp))
-            ProgressBar(fraction = (spent / budget).coerceIn(0.0, 1.0).toFloat())
-        } else {
-            Text("Spent so far: ${spent.formatAmount()}", modifier = Modifier.padding(top = 8.dp))
+    Card(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Overall budget", style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Monthly budget") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { parseAmountInput(text)?.let(onSave) }) { Text("Save") }
+            }
+            if (budget != null && budget > 0.0) {
+                val percent = (spent / budget * 100).toInt()
+                Text(
+                    "Spent ${spent.formatAmount()} of ${budget.formatAmount()} ($percent%)",
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                ProgressBar(fraction = (spent / budget).coerceIn(0.0, 1.0).toFloat())
+            } else {
+                Text("Spent so far: ${spent.formatAmount()}", modifier = Modifier.padding(top = 8.dp))
+            }
         }
     }
 }
@@ -218,21 +241,6 @@ private fun CategoryBudgetRow(
                 Text("Use last month's: ${suggestion.formatAmount()}")
             }
         }
-    }
-}
-
-@Composable
-private fun SpendBreakdownRow(category: CategoryEntity?, amount: Double, percent: Double) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-    ) {
-        CategoryAvatar(category)
-        Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
-            Text(category?.name ?: "Uncategorized")
-            ProgressBar(fraction = (percent / 100.0).toFloat())
-        }
-        Text("${amount.formatAmount()} (${percent.toInt()}%)")
     }
 }
 
