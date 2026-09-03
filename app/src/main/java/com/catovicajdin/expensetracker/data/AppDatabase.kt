@@ -16,7 +16,7 @@ import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 
 @Database(
     entities = [RawNotificationEntity::class, TransactionEntity::class, CategoryEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -33,33 +33,47 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "expense_tracker.db",
-                ).addCallback(SeedDefaultCategories).build().also { instance = it }
+                )
+                    .addCallback(SeedDefaultCategories)
+                    // Fine while the schema is still actively changing during early development -
+                    // switch to real Migrations before this ships with real user data on it.
+                    .fallbackToDestructiveMigration()
+                    .build()
+                    .also { instance = it }
             }
+
+        private data class CategorySeed(
+            val name: String,
+            val isQuickPick: Boolean,
+            val sortOrder: Int,
+            val colorHex: String,
+        )
 
         private object SeedDefaultCategories : Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
                 val defaults = listOf(
-                    Triple("Phone Bill", false, 0),
-                    Triple("Misc", false, 1),
-                    Triple("Food ordering", true, 2),
-                    Triple("Subscriptions", false, 3),
-                    Triple("Padel", false, 4),
-                    Triple("Groceries", true, 5),
-                    Triple("Coffee", true, 6),
-                    Triple("Gas Bill", false, 7),
-                    Triple("Parents", false, 8),
-                    Triple("Donating", false, 9),
-                    Triple("Bills", false, 10),
-                    Triple("Date nights", false, 11),
-                    Triple("Pets", false, 12),
-                    Triple("DM", false, 13),
+                    CategorySeed("Phone Bill", false, 0, "#EF5350"),
+                    CategorySeed("Misc", false, 1, "#78909C"),
+                    CategorySeed("Food ordering", true, 2, "#FF7043"),
+                    CategorySeed("Subscriptions", false, 3, "#5C6BC0"),
+                    CategorySeed("Padel", false, 4, "#9CCC65"),
+                    CategorySeed("Groceries", true, 5, "#26A69A"),
+                    CategorySeed("Coffee", true, 6, "#8D6E63"),
+                    CategorySeed("Gas Bill", false, 7, "#42A5F5"),
+                    CategorySeed("Parents", false, 8, "#66BB6A"),
+                    CategorySeed("Donating", false, 9, "#EC407A"),
+                    CategorySeed("Bills", false, 10, "#AB47BC"),
+                    CategorySeed("Date nights", false, 11, "#D4E157"),
+                    CategorySeed("Pets", false, 12, "#FFA726"),
+                    CategorySeed("DM", false, 13, "#FFCA28"),
                 )
-                defaults.forEach { (name, quickPick, order) ->
+                defaults.forEach { seed ->
                     val values = ContentValues().apply {
-                        put("name", name)
-                        put("isQuickPick", quickPick)
-                        put("sortOrder", order)
+                        put("name", seed.name)
+                        put("isQuickPick", seed.isQuickPick)
+                        put("sortOrder", seed.sortOrder)
+                        put("colorHex", seed.colorHex)
                     }
                     db.insert("categories", SQLiteDatabase.CONFLICT_IGNORE, values)
                 }

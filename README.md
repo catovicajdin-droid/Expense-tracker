@@ -14,7 +14,11 @@ credentials, no scraping, no server involved.
    number), the raw row is flagged `NEEDS_REVIEW` with the reason attached, visible in the app's
    "Needs review" screen.
 4. On a successful parse, a notification pops up with one-tap buttons for your top categories, plus
-   "More…" which opens the app to the full category list for that one transaction.
+   "More…" which opens the app to the full category list for that one transaction. If a past
+   transaction had the exact same amount and was already categorized, that category is suggested
+   first (marked with a ★), both in the notification and at the top of the in-app category list.
+5. The transaction list supports combinable filters (category, date range, min/max amount) — all
+   selected filters apply together (AND), not one-at-a-time.
 
 ## Before you build this
 
@@ -38,7 +42,10 @@ credentials, no scraping, no server involved.
 ## Known limitations (by design, for now)
 
 - No merchant name — the notification only carries amount + running balance, so categorization is
-  manual/one-tap rather than automatic.
+  manual/one-tap rather than automatic (eased by the amount-match suggestion above).
 - Android only — iOS does not allow any app to read another app's notification content.
 - Coupled to the bank's exact notification wording; a change on their end routes to "Needs review"
   instead of silently mis-parsing (see `TransactionParser` and `NotificationRepository`).
+- The database uses `fallbackToDestructiveMigration()` — any future schema change wipes local data
+  on the next app update. Fine while there's no real transaction history worth keeping yet; switch
+  to real Room `Migration`s before that's no longer true.

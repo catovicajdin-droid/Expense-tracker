@@ -9,4 +9,5 @@ data class CategoryEntity(
     val name: String,
     val isQuickPick: Boolean = false,
     val sortOrder: Int = 0,
+    val colorHex: String = "#607D8B",
 )

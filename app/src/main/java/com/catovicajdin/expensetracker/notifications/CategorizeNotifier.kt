@@ -10,8 +10,13 @@ import com.catovicajdin.expensetracker.Constants
 import com.catovicajdin.expensetracker.MainActivity
 import com.catovicajdin.expensetracker.R
 import com.catovicajdin.expensetracker.data.AppDatabase
+import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 
-/** Builds the per-transaction notification: one-tap quick-category buttons, plus a "More" fallback. */
+/**
+ * Builds the per-transaction notification: one-tap quick-category buttons, plus a "More" fallback.
+ * If a past transaction of this exact amount was already categorized, that category is suggested
+ * first (marked with a star) ahead of the usual quick-picks.
+ */
 object CategorizeNotifier {
 
     private fun ensureChannel(context: Context) {
@@ -28,7 +33,16 @@ object CategorizeNotifier {
     suspend fun notify(context: Context, transactionId: Long) {
         ensureChannel(context)
 
-        val quickPicks = AppDatabase.get(context).categoryDao().quickPicks(limit = 3)
+        val db = AppDatabase.get(context)
+        val transaction = db.transactionDao().byId(transactionId)
+        val suggestedId = transaction?.let { db.transactionDao().suggestedCategoryForAmount(it.amount) }
+        val suggested = suggestedId?.let { db.categoryDao().byId(it) }
+        val defaults = db.categoryDao().quickPicks(limit = 3)
+
+        val buttons: List<CategoryEntity> = buildList {
+            if (suggested != null) add(suggested)
+            defaults.filter { it.id != suggested?.id }.forEach { add(it) }
+        }.take(3)
 
         val builder = NotificationCompat.Builder(context, Constants.CHANNEL_ID_CATEGORIZE)
             .setSmallIcon(R.drawable.ic_notification)
@@ -37,8 +51,9 @@ object CategorizeNotifier {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
 
-        quickPicks.forEach { category ->
-            builder.addAction(0, category.name, categoryActionIntent(context, transactionId, category.id))
+        buttons.forEach { category ->
+            val label = if (category.id == suggested?.id) "★ ${category.name}" else category.name
+            builder.addAction(0, label, categoryActionIntent(context, transactionId, category.id))
         }
         builder.addAction(0, context.getString(R.string.categorize_more), morePendingIntent(context, transactionId))
 

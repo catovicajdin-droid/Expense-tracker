@@ -14,6 +14,9 @@ interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY sortOrder")
     fun all(): Flow<List<CategoryEntity>>
 
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun byId(id: Long): CategoryEntity?
+
     @Query("SELECT * FROM categories WHERE isQuickPick = 1 ORDER BY sortOrder LIMIT :limit")
     suspend fun quickPicks(limit: Int): List<CategoryEntity>
 }

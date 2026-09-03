@@ -1,8 +1,10 @@
 package com.catovicajdin.expensetracker.ui
 
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import com.catovicajdin.expensetracker.ui.theme.ExpenseTrackerTheme
 
 @Composable
 fun AppRoot(
@@ -11,8 +13,8 @@ fun AppRoot(
     isNotificationAccessGranted: Boolean,
     onRequestNotificationAccess: () -> Unit,
 ) {
-    MaterialTheme {
-        Surface {
+    ExpenseTrackerTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
             if (!isNotificationAccessGranted) {
                 OnboardingScreen(onRequestNotificationAccess = onRequestNotificationAccess)
                 return@Surface
