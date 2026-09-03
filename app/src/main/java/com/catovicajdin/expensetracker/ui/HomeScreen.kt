@@ -18,7 +18,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -48,17 +50,28 @@ fun HomeScreen(
     val context = LocalContext.current
     val db = AppDatabase.get(context)
 
-    val thisMonth = remember { MonthRange.current() }
-    val lastMonth = remember { MonthRange.previous(thisMonth) }
-    val thisRange = remember { MonthRange.millisRange(thisMonth) }
-    val lastRange = remember { MonthRange.millisRange(lastMonth) }
+    var yearMonth by remember { mutableStateOf(MonthRange.current()) }
+    val lastMonth = remember(yearMonth) { MonthRange.previous(yearMonth) }
+    val thisRange = remember(yearMonth) { MonthRange.millisRange(yearMonth) }
+    val lastRange = remember(lastMonth) { MonthRange.millisRange(lastMonth) }
 
     val categories by db.categoryDao().all().collectAsState(initial = emptyList())
     val spent by db.transactionDao().totalSpent(thisRange.first, thisRange.second).collectAsState(initial = 0.0)
     val lastSpent by db.transactionDao().totalSpent(lastRange.first, lastRange.second).collectAsState(initial = 0.0)
-    val monthlyBudget by db.budgetDao().monthlyBudgetFlow(thisMonth).collectAsState(initial = null)
+    val monthlyBudget by db.budgetDao().monthlyBudgetFlow(yearMonth).collectAsState(initial = null)
     val needsReviewRows by db.rawNotificationDao().needsReview().collectAsState(initial = emptyList())
-    val recent by db.transactionDao().recent(8).collectAsState(initial = emptyList())
+    val monthRows by db.transactionDao().filteredWithSource(
+        categoryIds = emptyList(),
+        categoryCount = 0,
+        fromMillis = thisRange.first,
+        toMillis = thisRange.second,
+        minAmount = null,
+        maxAmount = null,
+        tagIds = emptyList(),
+        matchAllTags = false,
+        tagCount = 0,
+    ).collectAsState(initial = emptyList())
+    val recent = remember(monthRows) { monthRows.take(8).map { it.transaction } }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -68,12 +81,28 @@ fun HomeScreen(
                 Text(formatAmount(spent), style = MaterialTheme.typography.headlineLarge)
                 Text(" BAM", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 4.dp))
             }
-            Text(
-                "${MonthRange.displayLabel(thisMonth)} · ${deltaText(spent, lastSpent)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp),
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            ) {
+                Text(
+                    "${MonthRange.displayLabel(yearMonth)} · ${deltaText(spent, lastSpent)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                Row {
+                    TextButton(
+                        onClick = { yearMonth = MonthRange.previous(yearMonth) },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp),
+                    ) { Text("‹", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary) }
+                    TextButton(
+                        onClick = { yearMonth = MonthRange.next(yearMonth) },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp),
+                    ) { Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary) }
+                }
+            }
         }
         Divider2()
 
