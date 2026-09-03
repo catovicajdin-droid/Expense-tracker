@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,10 +21,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
+import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
+import com.catovicajdin.expensetracker.ui.components.Divider2
+import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -49,37 +53,43 @@ fun CategorizeScreen(transactionId: Long, onDone: () -> Unit) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Categorize transaction")
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.padding(20.dp, 16.dp)) {
+            Text("Categorize", style = MaterialTheme.typography.headlineMedium)
+        }
+        Divider2()
 
         suggested?.let { category ->
-            Text("Suggested — same amount matched before:", modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { assign(category.id) }
-                    .padding(vertical = 8.dp),
-            ) {
-                CategoryAvatar(category)
-                Text(category.name, modifier = Modifier.padding(start = 12.dp))
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            SectionLabel("Suggested", modifier = Modifier.padding(20.dp, 14.dp, 20.dp, 6.dp))
+            CategoryRow(category = category, onClick = { assign(category.id) })
+            Divider2()
         }
 
+        SectionLabel("All categories", modifier = Modifier.padding(20.dp, 14.dp, 20.dp, 6.dp))
         LazyColumn {
             items(categories) { category ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { assign(category.id) }
-                        .padding(vertical = 8.dp),
-                ) {
-                    CategoryAvatar(category)
-                    Text(category.name, modifier = Modifier.padding(start = 12.dp))
-                }
+                CategoryRow(category = category, onClick = { assign(category.id) })
+                Divider2()
             }
         }
+    }
+}
+
+@Composable
+private fun CategoryRow(category: CategoryEntity, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(20.dp, 12.dp),
+    ) {
+        CategoryIconBadge(category, size = 28.dp)
+        Text(
+            category.name,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 12.dp),
+        )
     }
 }

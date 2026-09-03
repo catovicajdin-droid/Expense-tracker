@@ -11,10 +11,10 @@ import com.catovicajdin.expensetracker.data.MonthRange
 import com.catovicajdin.expensetracker.data.entity.BudgetAlertEntity
 import kotlinx.coroutines.flow.first
 
-/** Fires a one-time notification per month when overall or per-category spend crosses 50%/75% of its budget. */
+/** Fires a one-time notification per month when overall or per-category spend crosses 50%/75%/100% of its budget. */
 object BudgetAlerts {
 
-    private val THRESHOLDS = listOf(50, 75)
+    private val THRESHOLDS = listOf(50, 75, 100)
 
     private fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
