@@ -61,4 +61,32 @@ class NotificationRepository(private val db: AppDatabase) {
         )
         return recent.any { it.title == title && it.body == body }
     }
+
+    /**
+     * Manually-entered transactions (cash, anything the bank never pushes a notification for) still
+     * get a raw_notifications row, so every transaction traces back to one uniformly - it's just
+     * marked as coming from "manual" rather than the bank's package.
+     */
+    suspend fun insertManual(amount: Double, categoryId: Long?, postedAt: Long): Long {
+        val rawId = db.rawNotificationDao().insert(
+            RawNotificationEntity(
+                packageName = "manual",
+                title = "Manual entry",
+                body = "Manually added transaction",
+                postedAt = postedAt,
+                parseStatus = "PARSED",
+                parserVersion = Constants.PARSER_VERSION,
+            )
+        )
+        return db.transactionDao().insert(
+            TransactionEntity(
+                rawNotificationId = rawId,
+                amount = amount,
+                currency = "BAM",
+                availableBalance = 0.0,
+                postedAt = postedAt,
+                categoryId = categoryId,
+            )
+        )
+    }
 }

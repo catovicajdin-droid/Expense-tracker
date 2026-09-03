@@ -26,6 +26,10 @@ credentials, no scraping, no server involved.
    "use last month's" shortcut. A "Where your money goes" breakdown ranks categories by spend with
    percentages. Crossing 50%/75% of the overall or any category budget fires a one-time-per-month
    notification (`BudgetAlerts`).
+7. The **"+ Add"** button on the transaction list opens a dialog for manually-entered transactions
+   (cash, anything the bank never pushes a notification for) - they flow through the same pipeline
+   as auto-tracked ones (same table, same budget/alert logic), just tagged as coming from `"manual"`
+   instead of the bank's package.
 
 ## Before you build this
 
@@ -53,6 +57,7 @@ credentials, no scraping, no server involved.
 - Android only — iOS does not allow any app to read another app's notification content.
 - Coupled to the bank's exact notification wording; a change on their end routes to "Needs review"
   instead of silently mis-parsing (see `TransactionParser` and `NotificationRepository`).
-- The database uses `fallbackToDestructiveMigration()` — any future schema change wipes local data
-  on the next app update. Fine while there's no real transaction history worth keeping yet; switch
-  to real Room `Migration`s before that's no longer true.
+- The database no longer uses `fallbackToDestructiveMigration()` — any schema change from here on
+  (version 3 onward) needs a real `Migration(oldVersion, newVersion)` added to `AppDatabase`'s
+  builder, or the app will crash on update instead of silently wiping data. Versions 1-2 were wiped
+  during early development before this switch; that's already reflected in the version 3 baseline.

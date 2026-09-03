@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
+import com.catovicajdin.expensetracker.data.NotificationRepository
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
@@ -39,6 +40,7 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
     val context = LocalContext.current
     val db = AppDatabase.get(context)
     val scope = rememberCoroutineScope()
+    var showAddDialog by remember { mutableStateOf(false) }
     val categories by db.categoryDao().all().collectAsState(initial = emptyList())
     var filter by remember { mutableStateOf(TransactionFilter()) }
     val transactions by db.transactionDao().filtered(
@@ -54,6 +56,7 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
         Row(modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = onOpenNeedsReview) { Text("Needs review") }
             TextButton(onClick = onOpenBudget) { Text("Budget") }
+            TextButton(onClick = { showAddDialog = true }) { Text("+ Add") }
         }
         FilterBar(categories = categories, filter = filter, onFilterChange = { filter = it })
         HorizontalDivider()
@@ -74,6 +77,21 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
                 HorizontalDivider()
             }
         }
+    }
+
+    if (showAddDialog) {
+        AddTransactionDialog(
+            categories = categories,
+            onDismiss = { showAddDialog = false },
+            onSave = { amount, categoryId ->
+                scope.launch {
+                    NotificationRepository(db).insertManual(amount, categoryId, System.currentTimeMillis())
+                    if (categoryId != null) BudgetAlerts.checkCategory(context, categoryId)
+                    BudgetAlerts.checkOverall(context)
+                }
+                showAddDialog = false
+            },
+        )
     }
 }
 

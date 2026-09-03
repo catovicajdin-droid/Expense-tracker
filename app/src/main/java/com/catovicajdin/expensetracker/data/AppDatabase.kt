@@ -47,9 +47,8 @@ abstract class AppDatabase : RoomDatabase() {
                     "expense_tracker.db",
                 )
                     .addCallback(SeedDefaultCategories)
-                    // Fine while the schema is still actively changing during early development -
-                    // switch to real Migrations before this ships with real user data on it.
-                    .fallbackToDestructiveMigration()
+                    // No destructive fallback from here on - schema changes now require a real
+                    // Migration(oldVersion, newVersion) added below, so existing data survives updates.
                     .build()
                     .also { instance = it }
             }
