@@ -15,7 +15,12 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun byId(id: Long): TransactionEntity?
 
-    /** All filters are optional and combine with AND - a null parameter is simply skipped. */
+    /**
+     * All filters are optional and combine with AND - a null/empty parameter is simply skipped.
+     * Tag matching itself has two modes: matchAllTags=false means "has any of tagIds" (OR across
+     * tags), matchAllTags=true means "has every one of tagIds" (AND across tags) - tagCount must be
+     * tagIds.size, passed separately since Room can't call .size on a bound List in SQL.
+     */
     @Query(
         """
         SELECT * FROM transactions
@@ -24,7 +29,14 @@ interface TransactionDao {
         AND (:toMillis IS NULL OR postedAt <= :toMillis)
         AND (:minAmount IS NULL OR amount >= :minAmount)
         AND (:maxAmount IS NULL OR amount <= :maxAmount)
-        AND (:tagId IS NULL OR id IN (SELECT transactionId FROM transaction_tags WHERE tagId = :tagId))
+        AND (
+            :tagCount = 0
+            OR (NOT :matchAllTags AND id IN (SELECT transactionId FROM transaction_tags WHERE tagId IN (:tagIds)))
+            OR (:matchAllTags AND (
+                SELECT COUNT(DISTINCT tagId) FROM transaction_tags
+                WHERE transactionId = transactions.id AND tagId IN (:tagIds)
+            ) = :tagCount)
+        )
         ORDER BY postedAt DESC
         """
     )
@@ -34,7 +46,9 @@ interface TransactionDao {
         toMillis: Long?,
         minAmount: Double?,
         maxAmount: Double?,
-        tagId: Long?,
+        tagIds: List<Long>,
+        matchAllTags: Boolean,
+        tagCount: Int,
     ): Flow<List<TransactionEntity>>
 
     /** Most recent category assigned to a transaction of this exact amount, if any - powers the categorize suggestion. */
@@ -54,8 +68,8 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun delete(id: Long)
 
-    @Query("UPDATE transactions SET postedAt = :postedAt, notes = :notes WHERE id = :id")
-    suspend fun updateDetails(id: Long, postedAt: Long, notes: String?)
+    @Query("UPDATE transactions SET postedAt = :postedAt WHERE id = :id")
+    suspend fun updatePostedAt(id: Long, postedAt: Long)
 
     @Query(
         """

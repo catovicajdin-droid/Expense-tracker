@@ -32,6 +32,10 @@ interface TagDao {
     @Query("SELECT tagId FROM transaction_tags WHERE transactionId = :transactionId")
     suspend fun tagIdsForTransaction(transactionId: Long): List<Long>
 
+    /** Cascades: transaction_tags rows referencing this tag are removed automatically (ON DELETE CASCADE). */
+    @Query("DELETE FROM tags WHERE id = :id")
+    suspend fun delete(id: Long)
+
     @Query(
         """
         SELECT tt.transactionId as transactionId, t.name as tagName

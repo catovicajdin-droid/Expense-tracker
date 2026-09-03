@@ -31,10 +31,18 @@ credentials, no scraping, no server involved.
    as auto-tracked ones (same table, same budget/alert logic), just tagged as coming from `"manual"`
    instead of the bank's package.
 8. Every transaction (auto-tracked or manual) has an **"Edit"** action - change its date via a
-   calendar picker, add free-text notes, and attach/detach tags. New tags are created inline. A
-   "Delete" action removes the transaction (with a confirmation prompt); the originating
-   `raw_notifications` row stays for auto-tracked ones. The filter bar can also filter by tag,
-   combining with category/date/amount filters the same way.
+   calendar picker (keeping the existing time of day), and attach/detach tags via toggleable chips,
+   with a comma-separated field for adding several new tags at once. The "+ Add" dialog for manual
+   entries has the same tag picker built in, so tags can be assigned at creation time instead of a
+   follow-up edit. Tapping the × on a tag chip deletes that tag globally (with a confirmation, since
+   it removes it from every transaction that has it) - `TagEntity`/`transaction_tags` use
+   `ON DELETE CASCADE`, so no separate cleanup is needed.  A "Delete" action removes the transaction
+   itself (with a confirmation prompt); the originating `raw_notifications` row stays for
+   auto-tracked ones. The filter bar supports multi-tag filtering with a toggleable ANY/ALL match
+   mode, combining with the category/date/amount filters the same AND way.
+   (Note: `TransactionEntity.notes` and the schema column both still exist but are intentionally
+   unused - tags replaced free-text notes, and dropping the column would need a riskier
+   table-recreation migration for no real benefit.)
 
 ## Before you build this
 

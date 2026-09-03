@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -40,7 +42,6 @@ fun FilterBar(
     onFilterChange: (TransactionFilter) -> Unit,
 ) {
     var categoryExpanded by remember { mutableStateOf(false) }
-    var tagExpanded by remember { mutableStateOf(false) }
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
@@ -70,27 +71,31 @@ fun FilterBar(
                     }
                 }
             }
-            Box {
-                TextButton(onClick = { tagExpanded = true }) {
-                    Text(tags.find { it.id == filter.tagId }?.name ?: "All tags")
-                }
-                DropdownMenu(expanded = tagExpanded, onDismissRequest = { tagExpanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text("All tags") },
-                        onClick = {
-                            onFilterChange(filter.copy(tagId = null))
-                            tagExpanded = false
-                        },
-                    )
-                    tags.forEach { tag ->
-                        DropdownMenuItem(
-                            text = { Text(tag.name) },
-                            onClick = {
-                                onFilterChange(filter.copy(tagId = tag.id))
-                                tagExpanded = false
+        }
+
+        if (tags.isNotEmpty()) {
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                LazyRow(modifier = Modifier.weight(1f)) {
+                    items(tags) { tag ->
+                        TagChip(
+                            tag = tag,
+                            selected = filter.tagIds.contains(tag.id),
+                            onToggle = {
+                                val newIds = if (filter.tagIds.contains(tag.id)) {
+                                    filter.tagIds - tag.id
+                                } else {
+                                    filter.tagIds + tag.id
+                                }
+                                onFilterChange(filter.copy(tagIds = newIds))
                             },
                         )
                     }
+                }
+                TextButton(onClick = {
+                    val nextMode = if (filter.tagMatchMode == TagMatchMode.ANY) TagMatchMode.ALL else TagMatchMode.ANY
+                    onFilterChange(filter.copy(tagMatchMode = nextMode))
+                }) {
+                    Text(if (filter.tagMatchMode == TagMatchMode.ANY) "Match: ANY" else "Match: ALL")
                 }
             }
         }

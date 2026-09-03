@@ -26,10 +26,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.NotificationRepository
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
+import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import kotlinx.coroutines.launch
@@ -54,11 +56,17 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
         toMillis = filter.toMillis,
         minAmount = filter.minAmount,
         maxAmount = filter.maxAmount,
-        tagId = filter.tagId,
+        tagIds = filter.tagIds.toList(),
+        matchAllTags = filter.tagMatchMode == TagMatchMode.ALL,
+        tagCount = filter.tagIds.size,
     ).collectAsState(initial = emptyList())
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
     val tagsByTransaction = remember(tagNamesByTransaction) {
         tagNamesByTransaction.groupBy({ it.transactionId }, valueTransform = { it.tagName })
+    }
+
+    fun deleteTag(tag: TagEntity) {
+        scope.launch { db.tagDao().delete(tag.id) }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -99,10 +107,14 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
     if (showAddDialog) {
         AddTransactionDialog(
             categories = categories,
+            allTags = tags,
             onDismiss = { showAddDialog = false },
-            onSave = { amount, categoryId, postedAt ->
+            onDeleteTag = ::deleteTag,
+            onSave = { amount, categoryId, postedAt, tagIds, newTagNames ->
                 scope.launch {
-                    NotificationRepository(db).insertManual(amount, categoryId, postedAt)
+                    val newTagIds = newTagNames.map { db.tagDao().getOrCreate(it) }
+                    val transactionId = NotificationRepository(db).insertManual(amount, categoryId, postedAt)
+                    db.tagDao().replaceTagsForTransaction(transactionId, tagIds + newTagIds)
                     if (categoryId != null) BudgetAlerts.checkCategory(context, categoryId)
                     BudgetAlerts.checkOverall(context)
                 }
@@ -117,15 +129,12 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
             allTags = tags,
             currentTagIds = editingTagIds,
             onDismiss = { editingTransaction = null },
-            onSave = { postedAt, notes, tagIds, newTagName ->
+            onDeleteTag = ::deleteTag,
+            onSave = { postedAt, tagIds, newTagNames ->
                 scope.launch {
-                    val finalTagIds = if (!newTagName.isNullOrBlank()) {
-                        tagIds + db.tagDao().getOrCreate(newTagName.trim())
-                    } else {
-                        tagIds
-                    }
-                    db.transactionDao().updateDetails(transaction.id, postedAt, notes)
-                    db.tagDao().replaceTagsForTransaction(transaction.id, finalTagIds)
+                    val newTagIds = newTagNames.map { db.tagDao().getOrCreate(it) }
+                    db.transactionDao().updatePostedAt(transaction.id, postedAt)
+                    db.tagDao().replaceTagsForTransaction(transaction.id, tagIds + newTagIds)
                 }
                 editingTransaction = null
             },
@@ -149,12 +158,11 @@ private fun TransactionRow(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Box {
                 Box(modifier = Modifier.clickable { expanded = true }) {
                     CategoryAvatar(category)
@@ -175,11 +183,11 @@ private fun TransactionRow(
                 Text(category?.name ?: "Uncategorized")
                 Text(dateFormat.format(transaction.postedAt))
                 if (tagNames.isNotEmpty()) {
-                    Text(tagNames.joinToString(", "))
+                    Text(tagNames.joinToString(", "), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
-        Column {
+        Column(horizontalAlignment = Alignment.End) {
             Text("${transaction.amount} ${transaction.currency}")
             Row {
                 TextButton(onClick = onEdit) { Text("Edit") }

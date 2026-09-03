@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
+import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.data.parseAmountInput
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -36,14 +37,18 @@ import java.util.Locale
 @Composable
 fun AddTransactionDialog(
     categories: List<CategoryEntity>,
+    allTags: List<TagEntity>,
     onDismiss: () -> Unit,
-    onSave: (amount: Double, categoryId: Long?, postedAt: Long) -> Unit,
+    onDeleteTag: (TagEntity) -> Unit,
+    onSave: (amount: Double, categoryId: Long?, postedAt: Long, tagIds: Set<Long>, newTagNames: List<String>) -> Unit,
 ) {
     var amountText by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<CategoryEntity?>(null) }
     var categoryExpanded by remember { mutableStateOf(false) }
     var postedAt by remember { mutableStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var selectedTagIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var newTagText by remember { mutableStateOf("") }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     AlertDialog(
@@ -84,11 +89,30 @@ fun AddTransactionDialog(
                         }
                     }
                 }
+                TagSelector(
+                    allTags = allTags,
+                    selectedTagIds = selectedTagIds,
+                    onToggle = { tagId ->
+                        selectedTagIds = if (selectedTagIds.contains(tagId)) {
+                            selectedTagIds - tagId
+                        } else {
+                            selectedTagIds + tagId
+                        }
+                    },
+                    onDeleteTag = { tag ->
+                        selectedTagIds = selectedTagIds - tag.id
+                        onDeleteTag(tag)
+                    },
+                    newTagText = newTagText,
+                    onNewTagTextChange = { newTagText = it },
+                )
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                parseAmountInput(amountText)?.let { amount -> onSave(amount, selectedCategory?.id, postedAt) }
+                parseAmountInput(amountText)?.let { amount ->
+                    onSave(amount, selectedCategory?.id, postedAt, selectedTagIds, parseTagNames(newTagText))
+                }
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
