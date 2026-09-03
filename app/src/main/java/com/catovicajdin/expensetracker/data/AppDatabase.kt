@@ -40,11 +40,20 @@ abstract class AppDatabase : RoomDatabase() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
                 val defaults = listOf(
-                    Triple("Groceries", true, 0),
-                    Triple("Transport", true, 1),
-                    Triple("Dining", true, 2),
-                    Triple("Bills", false, 3),
-                    Triple("Other", false, 4),
+                    Triple("Phone Bill", false, 0),
+                    Triple("Misc", false, 1),
+                    Triple("Food ordering", true, 2),
+                    Triple("Subscriptions", false, 3),
+                    Triple("Padel", false, 4),
+                    Triple("Groceries", true, 5),
+                    Triple("Coffee", true, 6),
+                    Triple("Gas Bill", false, 7),
+                    Triple("Parents", false, 8),
+                    Triple("Donating", false, 9),
+                    Triple("Bills", false, 10),
+                    Triple("Date nights", false, 11),
+                    Triple("Pets", false, 12),
+                    Triple("DM", false, 13),
                 )
                 defaults.forEach { (name, quickPick, order) ->
                     val values = ContentValues().apply {
