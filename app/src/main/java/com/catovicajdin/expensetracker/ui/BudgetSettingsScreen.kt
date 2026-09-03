@@ -9,12 +9,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -34,20 +33,22 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
-import com.catovicajdin.expensetracker.data.parseAmountInput
 import com.catovicajdin.expensetracker.data.entity.CategoryBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.MonthlyBudgetEntity
+import com.catovicajdin.expensetracker.data.parseAmountInput
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import com.catovicajdin.expensetracker.ui.charts.CategoryDonutChart
 import com.catovicajdin.expensetracker.ui.charts.DonutEntry
+import com.catovicajdin.expensetracker.ui.components.CategoryDot
+import com.catovicajdin.expensetracker.ui.components.Divider2
+import com.catovicajdin.expensetracker.ui.components.SectionLabel
+import com.catovicajdin.expensetracker.ui.components.formatAmount
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-private fun Double.formatAmount(): String = "%.2f".format(this)
-
 @Composable
-fun BudgetScreen(onBack: () -> Unit) {
+fun BudgetSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val db = AppDatabase.get(context)
     val scope = rememberCoroutineScope()
@@ -75,80 +76,76 @@ fun BudgetScreen(onBack: () -> Unit) {
     val budgetByCategory = remember(categoryBudgets) { categoryBudgets.associate { it.categoryId to it.amount } }
     val sortedTotals = remember(categoryTotals) { categoryTotals.sortedByDescending { it.total } }
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        item { TextButton(onClick = onBack) { Text("Back") } }
-
-        item {
-            MonthSelector(
-                yearMonth = yearMonth,
-                onPrevious = { yearMonth = MonthRange.previous(yearMonth) },
-                onNext = { yearMonth = MonthRange.next(yearMonth) },
-            )
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(20.dp, 16.dp)) {
+            TextButton(onClick = onBack, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                Text("← Budget", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+            }
+            Text("Edit budgets", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 12.dp))
         }
+        Divider2()
 
-        item {
-            OverallBudgetCard(
-                budget = monthlyBudget?.totalBudget,
-                spent = totalSpent,
-                onSave = { amount ->
-                    scope.launch {
-                        db.budgetDao().setMonthlyBudget(MonthlyBudgetEntity(yearMonth, amount))
-                        BudgetAlerts.checkOverall(context)
-                    }
-                },
-            )
-        }
-
-        item {
-            Text(
-                "Category budgets",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
-            )
-        }
-
-        items(categories) { category ->
-            CategoryBudgetRow(
-                category = category,
-                budget = budgetByCategory[category.id],
-                spent = spentByCategory[category.id] ?: 0.0,
-                suggestion = suggestedCategoryBudgets[category.id],
-                onSave = { amount ->
-                    scope.launch {
-                        db.budgetDao().setCategoryBudget(CategoryBudgetEntity(yearMonth, category.id, amount))
-                        BudgetAlerts.checkCategory(context, category.id)
-                    }
-                },
-            )
-            HorizontalDivider()
-        }
-
-        item {
-            Text(
-                "Where your money goes",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
-            )
-        }
-
-        item {
-            if (sortedTotals.isEmpty()) {
-                Text(
-                    "Categorize a few transactions to see the breakdown here.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        LazyColumn(modifier = Modifier.weight(1f).padding(20.dp)) {
+            item {
+                MonthSelector(
+                    yearMonth = yearMonth,
+                    onPrevious = { yearMonth = MonthRange.previous(yearMonth) },
+                    onNext = { yearMonth = MonthRange.next(yearMonth) },
                 )
-            } else {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    val donutEntries = sortedTotals.map { entry ->
-                        val category = categories.find { it.id == entry.categoryId }
-                        DonutEntry(
-                            label = category?.name ?: "Uncategorized",
-                            amount = entry.total,
-                            colorHex = category?.colorHex ?: "#9E9E9E",
-                        )
+            }
+
+            item {
+                OverallBudgetCard(
+                    budget = monthlyBudget?.totalBudget,
+                    spent = totalSpent,
+                    onSave = { amount ->
+                        scope.launch {
+                            db.budgetDao().setMonthlyBudget(MonthlyBudgetEntity(yearMonth, amount))
+                            BudgetAlerts.checkOverall(context)
+                        }
+                    },
+                )
+            }
+
+            item { SectionLabel("Category budgets", modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)) }
+
+            items(categories) { category ->
+                CategoryBudgetRow(
+                    category = category,
+                    budget = budgetByCategory[category.id],
+                    spent = spentByCategory[category.id] ?: 0.0,
+                    suggestion = suggestedCategoryBudgets[category.id],
+                    onSave = { amount ->
+                        scope.launch {
+                            db.budgetDao().setCategoryBudget(CategoryBudgetEntity(yearMonth, category.id, amount))
+                            BudgetAlerts.checkCategory(context, category.id)
+                        }
+                    },
+                )
+                Divider2()
+            }
+
+            item { SectionLabel("Where your money goes", modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)) }
+
+            item {
+                if (sortedTotals.isEmpty()) {
+                    Text(
+                        "Categorize a few transactions to see the breakdown here.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                        val donutEntries = sortedTotals.map { entry ->
+                            val category = categories.find { it.id == entry.categoryId }
+                            DonutEntry(
+                                label = category?.name ?: "Uncategorized",
+                                amount = entry.total,
+                                colorHex = category?.colorHex ?: "#9E9E9E",
+                            )
+                        }
+                        CategoryDonutChart(entries = donutEntries, modifier = Modifier.padding(16.dp))
                     }
-                    CategoryDonutChart(entries = donutEntries, modifier = Modifier.padding(16.dp))
                 }
             }
         }
@@ -172,7 +169,7 @@ private fun MonthSelector(yearMonth: String, onPrevious: () -> Unit, onNext: () 
 private fun OverallBudgetCard(budget: Double?, spent: Double, onSave: (Double) -> Unit) {
     var text by remember(budget) { mutableStateOf(budget?.toString() ?: "") }
 
-    Card(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+    Card(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), shape = MaterialTheme.shapes.medium) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Overall budget", style = MaterialTheme.typography.titleMedium)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
@@ -187,13 +184,10 @@ private fun OverallBudgetCard(budget: Double?, spent: Double, onSave: (Double) -
             }
             if (budget != null && budget > 0.0) {
                 val percent = (spent / budget * 100).toInt()
-                Text(
-                    "Spent ${spent.formatAmount()} of ${budget.formatAmount()} ($percent%)",
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+                Text("Spent ${formatAmount(spent)} of ${formatAmount(budget)} ($percent%)", modifier = Modifier.padding(top = 8.dp))
                 ProgressBar(fraction = (spent / budget).coerceIn(0.0, 1.0).toFloat())
             } else {
-                Text("Spent so far: ${spent.formatAmount()}", modifier = Modifier.padding(top = 8.dp))
+                Text("Spent so far: ${formatAmount(spent)}", modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
@@ -211,15 +205,15 @@ private fun CategoryBudgetRow(
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CategoryAvatar(category)
+            CategoryDot(category, size = 10.dp)
             Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
-                Text(category.name)
+                Text(category.name, style = MaterialTheme.typography.bodyLarge)
                 if (budget != null && budget > 0.0) {
                     val percent = (spent / budget * 100).toInt()
-                    Text("${spent.formatAmount()} / ${budget.formatAmount()} ($percent%)")
+                    Text("${formatAmount(spent)} / ${formatAmount(budget)} ($percent%)")
                     ProgressBar(fraction = (spent / budget).coerceIn(0.0, 1.0).toFloat())
                 } else {
-                    Text("Spent so far: ${spent.formatAmount()}")
+                    Text("Spent so far: ${formatAmount(spent)}")
                 }
             }
         }
@@ -238,7 +232,7 @@ private fun CategoryBudgetRow(
                 text = suggestion.toString()
                 onSave(suggestion)
             }) {
-                Text("Use last month's: ${suggestion.formatAmount()}")
+                Text("Use last month's: ${formatAmount(suggestion)}")
             }
         }
     }
@@ -247,16 +241,13 @@ private fun CategoryBudgetRow(
 @Composable
 private fun ProgressBar(fraction: Float, modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(8.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp)),
+        modifier = modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(fraction.coerceIn(0f, 1f))
                 .height(8.dp)
-                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp)),
+                .background(MaterialTheme.colorScheme.secondary),
         )
     }
 }

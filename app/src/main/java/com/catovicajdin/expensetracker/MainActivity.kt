@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
             var screen by remember {
                 mutableStateOf(
                     if (startTransactionId != null) Screen.Categorize(startTransactionId)
-                    else Screen.TransactionList
+                    else Screen.Home
                 )
             }
             val hasNotificationAccess by notificationAccessGranted

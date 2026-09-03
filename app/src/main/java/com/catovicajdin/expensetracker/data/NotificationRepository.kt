@@ -89,4 +89,27 @@ class NotificationRepository(private val db: AppDatabase) {
             )
         )
     }
+
+    /**
+     * Turns a NEEDS_REVIEW raw notification into a real transaction once the user supplies the
+     * amount/category by hand (the design's own "tap a category to resolve" flow can't work here,
+     * since real needs-review rows have no parsed amount to attach - the user must enter it).
+     */
+    suspend fun resolveReview(rawId: Long, categoryId: Long?, amount: Double, postedAt: Long): Long {
+        db.rawNotificationDao().updateStatus(rawId, "PARSED")
+        return db.transactionDao().insert(
+            TransactionEntity(
+                rawNotificationId = rawId,
+                amount = amount,
+                currency = "BAM",
+                availableBalance = 0.0,
+                postedAt = postedAt,
+                categoryId = categoryId,
+            )
+        )
+    }
+
+    suspend fun dismissReview(rawId: Long) {
+        db.rawNotificationDao().updateStatus(rawId, "IGNORED")
+    }
 }

@@ -22,4 +22,7 @@ interface RawNotificationDao {
         """
     )
     suspend fun findRecentForDedup(packageName: String, fromMillis: Long, toMillis: Long): List<RawNotificationEntity>
+
+    @Query("UPDATE raw_notifications SET parseStatus = :status WHERE id = :id")
+    suspend fun updateStatus(id: Long, status: String)
 }

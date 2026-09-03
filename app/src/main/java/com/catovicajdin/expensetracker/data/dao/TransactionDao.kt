@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import com.catovicajdin.expensetracker.data.CategoryTotal
+import com.catovicajdin.expensetracker.data.TransactionRow
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -50,6 +51,52 @@ interface TransactionDao {
         matchAllTags: Boolean,
         tagCount: Int,
     ): Flow<List<TransactionEntity>>
+
+    /** Same filter semantics as [filtered], but joins in raw_notifications so each row also carries its source (bank package name, or "manual"). */
+    @Query(
+        """
+        SELECT transactions.*, raw_notifications.packageName as source
+        FROM transactions
+        JOIN raw_notifications ON raw_notifications.id = transactions.rawNotificationId
+        WHERE (:categoryId IS NULL OR categoryId = :categoryId)
+        AND (:fromMillis IS NULL OR transactions.postedAt >= :fromMillis)
+        AND (:toMillis IS NULL OR transactions.postedAt <= :toMillis)
+        AND (:minAmount IS NULL OR amount >= :minAmount)
+        AND (:maxAmount IS NULL OR amount <= :maxAmount)
+        AND (
+            :tagCount = 0
+            OR (NOT :matchAllTags AND transactions.id IN (SELECT transactionId FROM transaction_tags WHERE tagId IN (:tagIds)))
+            OR (:matchAllTags AND (
+                SELECT COUNT(DISTINCT tagId) FROM transaction_tags
+                WHERE transactionId = transactions.id AND tagId IN (:tagIds)
+            ) = :tagCount)
+        )
+        ORDER BY transactions.postedAt DESC
+        """
+    )
+    fun filteredWithSource(
+        categoryId: Long?,
+        fromMillis: Long?,
+        toMillis: Long?,
+        minAmount: Double?,
+        maxAmount: Double?,
+        tagIds: List<Long>,
+        matchAllTags: Boolean,
+        tagCount: Int,
+    ): Flow<List<TransactionRow>>
+
+    @Query(
+        """
+        SELECT transactions.*, raw_notifications.packageName as source
+        FROM transactions
+        JOIN raw_notifications ON raw_notifications.id = transactions.rawNotificationId
+        WHERE transactions.id = :id
+        """
+    )
+    suspend fun byIdWithSource(id: Long): TransactionRow?
+
+    @Query("SELECT * FROM transactions ORDER BY postedAt DESC LIMIT :limit")
+    fun recent(limit: Int): Flow<List<TransactionEntity>>
 
     /** Most recent category assigned to a transaction of this exact amount, if any - powers the categorize suggestion. */
     @Query(
