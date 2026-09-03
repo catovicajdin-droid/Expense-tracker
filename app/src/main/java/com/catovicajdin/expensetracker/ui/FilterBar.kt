@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
+import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.data.parseAmountInput
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -34,35 +35,62 @@ import java.util.Locale
 @Composable
 fun FilterBar(
     categories: List<CategoryEntity>,
+    tags: List<TagEntity>,
     filter: TransactionFilter,
     onFilterChange: (TransactionFilter) -> Unit,
 ) {
     var categoryExpanded by remember { mutableStateOf(false) }
+    var tagExpanded by remember { mutableStateOf(false) }
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-        Box {
-            TextButton(onClick = { categoryExpanded = true }) {
-                Text(categories.find { it.id == filter.categoryId }?.name ?: "All categories")
-            }
-            DropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
-                DropdownMenuItem(
-                    text = { Text("All categories") },
-                    onClick = {
-                        onFilterChange(filter.copy(categoryId = null))
-                        categoryExpanded = false
-                    },
-                )
-                categories.forEach { category ->
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box {
+                TextButton(onClick = { categoryExpanded = true }) {
+                    Text(categories.find { it.id == filter.categoryId }?.name ?: "All categories")
+                }
+                DropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
                     DropdownMenuItem(
-                        text = { Text(category.name) },
+                        text = { Text("All categories") },
                         onClick = {
-                            onFilterChange(filter.copy(categoryId = category.id))
+                            onFilterChange(filter.copy(categoryId = null))
                             categoryExpanded = false
                         },
                     )
+                    categories.forEach { category ->
+                        DropdownMenuItem(
+                            text = { Text(category.name) },
+                            onClick = {
+                                onFilterChange(filter.copy(categoryId = category.id))
+                                categoryExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+            Box {
+                TextButton(onClick = { tagExpanded = true }) {
+                    Text(tags.find { it.id == filter.tagId }?.name ?: "All tags")
+                }
+                DropdownMenu(expanded = tagExpanded, onDismissRequest = { tagExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("All tags") },
+                        onClick = {
+                            onFilterChange(filter.copy(tagId = null))
+                            tagExpanded = false
+                        },
+                    )
+                    tags.forEach { tag ->
+                        DropdownMenuItem(
+                            text = { Text(tag.name) },
+                            onClick = {
+                                onFilterChange(filter.copy(tagId = tag.id))
+                                tagExpanded = false
+                            },
+                        )
+                    }
                 }
             }
         }

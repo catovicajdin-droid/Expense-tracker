@@ -11,13 +11,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.catovicajdin.expensetracker.data.dao.BudgetDao
 import com.catovicajdin.expensetracker.data.dao.CategoryDao
 import com.catovicajdin.expensetracker.data.dao.RawNotificationDao
+import com.catovicajdin.expensetracker.data.dao.TagDao
 import com.catovicajdin.expensetracker.data.dao.TransactionDao
 import com.catovicajdin.expensetracker.data.entity.BudgetAlertEntity
 import com.catovicajdin.expensetracker.data.entity.CategoryBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.MonthlyBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.RawNotificationEntity
+import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
+import com.catovicajdin.expensetracker.data.entity.TransactionTagCrossRef
 
 @Database(
     entities = [
@@ -27,8 +30,10 @@ import com.catovicajdin.expensetracker.data.entity.TransactionEntity
         MonthlyBudgetEntity::class,
         CategoryBudgetEntity::class,
         BudgetAlertEntity::class,
+        TagEntity::class,
+        TransactionTagCrossRef::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,6 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun categoryDao(): CategoryDao
     abstract fun budgetDao(): BudgetDao
+    abstract fun tagDao(): TagDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -50,7 +56,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addCallback(SeedDefaultCategories)
                     // No destructive fallback from here on - schema changes now require a real
                     // Migration(oldVersion, newVersion) added below, so existing data survives updates.
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }
@@ -110,6 +116,33 @@ abstract class AppDatabase : RoomDatabase() {
                         `categoryId` INTEGER NOT NULL,
                         `threshold` INTEGER NOT NULL,
                         PRIMARY KEY(`yearMonth`, `categoryId`, `threshold`)
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        /** v3 -> v4: transactions gained notes, plus a tags table and a transaction<->tag join table. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN notes TEXT")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `tags` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_tags_name` ON `tags` (`name`)")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `transaction_tags` (
+                        `transactionId` INTEGER NOT NULL,
+                        `tagId` INTEGER NOT NULL,
+                        PRIMARY KEY(`transactionId`, `tagId`),
+                        FOREIGN KEY(`transactionId`) REFERENCES `transactions`(`id`) ON DELETE CASCADE,
+                        FOREIGN KEY(`tagId`) REFERENCES `tags`(`id`) ON DELETE CASCADE
                     )
                     """.trimIndent()
                 )

@@ -24,6 +24,7 @@ interface TransactionDao {
         AND (:toMillis IS NULL OR postedAt <= :toMillis)
         AND (:minAmount IS NULL OR amount >= :minAmount)
         AND (:maxAmount IS NULL OR amount <= :maxAmount)
+        AND (:tagId IS NULL OR id IN (SELECT transactionId FROM transaction_tags WHERE tagId = :tagId))
         ORDER BY postedAt DESC
         """
     )
@@ -33,6 +34,7 @@ interface TransactionDao {
         toMillis: Long?,
         minAmount: Double?,
         maxAmount: Double?,
+        tagId: Long?,
     ): Flow<List<TransactionEntity>>
 
     /** Most recent category assigned to a transaction of this exact amount, if any - powers the categorize suggestion. */
@@ -51,6 +53,9 @@ interface TransactionDao {
     /** Leaves the originating raw_notifications row intact - only the transaction itself is removed. */
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("UPDATE transactions SET postedAt = :postedAt, notes = :notes WHERE id = :id")
+    suspend fun updateDetails(id: Long, postedAt: Long, notes: String?)
 
     @Query(
         """

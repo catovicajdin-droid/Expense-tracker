@@ -22,4 +22,5 @@ data class TransactionEntity(
     val availableBalance: Double,
     val postedAt: Long,
     val categoryId: Long? = null,
+    val notes: String? = null,
 )

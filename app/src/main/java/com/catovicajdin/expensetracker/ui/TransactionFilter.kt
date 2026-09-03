@@ -6,4 +6,5 @@ data class TransactionFilter(
     val toMillis: Long? = null,
     val minAmount: Double? = null,
     val maxAmount: Double? = null,
+    val tagId: Long? = null,
 )

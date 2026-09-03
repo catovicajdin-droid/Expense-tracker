@@ -30,6 +30,11 @@ credentials, no scraping, no server involved.
    (cash, anything the bank never pushes a notification for) - they flow through the same pipeline
    as auto-tracked ones (same table, same budget/alert logic), just tagged as coming from `"manual"`
    instead of the bank's package.
+8. Every transaction (auto-tracked or manual) has an **"Edit"** action - change its date via a
+   calendar picker, add free-text notes, and attach/detach tags. New tags are created inline. A
+   "Delete" action removes the transaction (with a confirmation prompt); the originating
+   `raw_notifications` row stays for auto-tracked ones. The filter bar can also filter by tag,
+   combining with category/date/amount filters the same way.
 
 ## Before you build this
 
