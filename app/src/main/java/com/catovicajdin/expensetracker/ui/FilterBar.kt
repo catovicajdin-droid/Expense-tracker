@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
+import com.catovicajdin.expensetracker.data.parseAmountInput
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -78,7 +79,7 @@ fun FilterBar(
         Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             OutlinedTextField(
                 value = filter.minAmount?.toString() ?: "",
-                onValueChange = { onFilterChange(filter.copy(minAmount = it.toDoubleOrNull())) },
+                onValueChange = { onFilterChange(filter.copy(minAmount = parseAmountInput(it))) },
                 label = { Text("Min amount") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.weight(1f),
@@ -86,7 +87,7 @@ fun FilterBar(
             Spacer(modifier = Modifier.width(8.dp))
             OutlinedTextField(
                 value = filter.maxAmount?.toString() ?: "",
-                onValueChange = { onFilterChange(filter.copy(maxAmount = it.toDoubleOrNull())) },
+                onValueChange = { onFilterChange(filter.copy(maxAmount = parseAmountInput(it))) },
                 label = { Text("Max amount") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.weight(1f),

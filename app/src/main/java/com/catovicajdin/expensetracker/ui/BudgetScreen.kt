@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
+import com.catovicajdin.expensetracker.data.parseAmountInput
 import com.catovicajdin.expensetracker.data.entity.CategoryBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.MonthlyBudgetEntity
@@ -163,7 +164,7 @@ private fun OverallBudgetCard(budget: Double?, spent: Double, onSave: (Double) -
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = { text.toDoubleOrNull()?.let(onSave) }) { Text("Save") }
+            TextButton(onClick = { parseAmountInput(text)?.let(onSave) }) { Text("Save") }
         }
         if (budget != null && budget > 0.0) {
             val percent = (spent / budget * 100).toInt()
@@ -207,7 +208,7 @@ private fun CategoryBudgetRow(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = { text.toDoubleOrNull()?.let(onSave) }) { Text("Save") }
+            TextButton(onClick = { parseAmountInput(text)?.let(onSave) }) { Text("Save") }
         }
         if (budget == null && suggestion != null) {
             TextButton(onClick = {

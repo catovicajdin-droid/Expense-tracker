@@ -83,9 +83,9 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
         AddTransactionDialog(
             categories = categories,
             onDismiss = { showAddDialog = false },
-            onSave = { amount, categoryId ->
+            onSave = { amount, categoryId, postedAt ->
                 scope.launch {
-                    NotificationRepository(db).insertManual(amount, categoryId, System.currentTimeMillis())
+                    NotificationRepository(db).insertManual(amount, categoryId, postedAt)
                     if (categoryId != null) BudgetAlerts.checkCategory(context, categoryId)
                     BudgetAlerts.checkOverall(context)
                 }
