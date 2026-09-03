@@ -8,12 +8,12 @@ import androidx.compose.runtime.Composable
 fun AppRoot(
     screen: Screen,
     onNavigate: (Screen) -> Unit,
-    isNotificationAccessGranted: () -> Boolean,
+    isNotificationAccessGranted: Boolean,
     onRequestNotificationAccess: () -> Unit,
 ) {
     MaterialTheme {
         Surface {
-            if (!isNotificationAccessGranted()) {
+            if (!isNotificationAccessGranted) {
                 OnboardingScreen(onRequestNotificationAccess = onRequestNotificationAccess)
                 return@Surface
             }

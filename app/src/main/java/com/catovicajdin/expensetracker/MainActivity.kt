@@ -20,6 +20,13 @@ class MainActivity : ComponentActivity() {
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* nothing to do either way */ }
 
+    /**
+     * Notification-access is granted from a system Settings screen outside the app, so it can only
+     * be observed by re-checking on resume - a one-time check in onCreate would never notice the
+     * user coming back with it granted.
+     */
+    private val notificationAccessGranted = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -38,13 +45,19 @@ class MainActivity : ComponentActivity() {
                     else Screen.TransactionList
                 )
             }
+            val hasNotificationAccess by notificationAccessGranted
             AppRoot(
                 screen = screen,
                 onNavigate = { screen = it },
-                isNotificationAccessGranted = { isNotificationAccessGranted() },
+                isNotificationAccessGranted = hasNotificationAccess,
                 onRequestNotificationAccess = { openNotificationAccessSettings() },
             )
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        notificationAccessGranted.value = isNotificationAccessGranted()
     }
 
     private fun isNotificationAccessGranted(): Boolean {
