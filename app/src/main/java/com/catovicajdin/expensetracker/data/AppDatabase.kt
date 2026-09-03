@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.catovicajdin.expensetracker.data.dao.BudgetDao
 import com.catovicajdin.expensetracker.data.dao.CategoryDao
@@ -49,9 +50,71 @@ abstract class AppDatabase : RoomDatabase() {
                     .addCallback(SeedDefaultCategories)
                     // No destructive fallback from here on - schema changes now require a real
                     // Migration(oldVersion, newVersion) added below, so existing data survives updates.
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { instance = it }
             }
+
+        /** v1 -> v2: categories gained a colorHex column - backfill each seeded category's real color. */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE categories ADD COLUMN colorHex TEXT NOT NULL DEFAULT '#607D8B'")
+                val colors = mapOf(
+                    "Phone Bill" to "#EF5350",
+                    "Misc" to "#78909C",
+                    "Food ordering" to "#FF7043",
+                    "Subscriptions" to "#5C6BC0",
+                    "Padel" to "#9CCC65",
+                    "Groceries" to "#26A69A",
+                    "Coffee" to "#8D6E63",
+                    "Gas Bill" to "#42A5F5",
+                    "Parents" to "#66BB6A",
+                    "Donating" to "#EC407A",
+                    "Bills" to "#AB47BC",
+                    "Date nights" to "#D4E157",
+                    "Pets" to "#FFA726",
+                    "DM" to "#FFCA28",
+                )
+                colors.forEach { (name, color) ->
+                    db.execSQL("UPDATE categories SET colorHex = ? WHERE name = ?", arrayOf(color, name))
+                }
+            }
+        }
+
+        /** v2 -> v3: added the three budget tables. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `monthly_budgets` (
+                        `yearMonth` TEXT NOT NULL,
+                        `totalBudget` REAL NOT NULL,
+                        PRIMARY KEY(`yearMonth`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `category_budgets` (
+                        `yearMonth` TEXT NOT NULL,
+                        `categoryId` INTEGER NOT NULL,
+                        `amount` REAL NOT NULL,
+                        PRIMARY KEY(`yearMonth`, `categoryId`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `budget_alerts` (
+                        `yearMonth` TEXT NOT NULL,
+                        `categoryId` INTEGER NOT NULL,
+                        `threshold` INTEGER NOT NULL,
+                        PRIMARY KEY(`yearMonth`, `categoryId`, `threshold`)
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
 
         private data class CategorySeed(
             val name: String,
