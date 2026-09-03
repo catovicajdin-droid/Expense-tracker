@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -73,6 +74,9 @@ fun TransactionListScreen(onOpenNeedsReview: () -> Unit, onOpenBudget: () -> Uni
                             BudgetAlerts.checkCategory(context, categoryId)
                         }
                     },
+                    onDelete = {
+                        scope.launch { db.transactionDao().delete(transaction.id) }
+                    },
                 )
                 HorizontalDivider()
             }
@@ -102,8 +106,10 @@ private fun TransactionRow(
     categories: List<CategoryEntity>,
     dateFormat: SimpleDateFormat,
     onReassign: (Long) -> Unit,
+    onDelete: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -134,6 +140,24 @@ private fun TransactionRow(
                 Text(dateFormat.format(transaction.postedAt))
             }
         }
-        Text("${transaction.amount} ${transaction.currency}")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("${transaction.amount} ${transaction.currency}")
+            TextButton(onClick = { showDeleteConfirm = true }) { Text("Delete") }
+        }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete this transaction?") },
+            text = { Text("${transaction.amount} ${transaction.currency} on ${dateFormat.format(transaction.postedAt)}. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete()
+                    showDeleteConfirm = false
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") } },
+        )
     }
 }
