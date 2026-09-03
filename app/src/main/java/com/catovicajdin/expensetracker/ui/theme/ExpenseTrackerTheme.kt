@@ -58,17 +58,26 @@ private val ArchivoFontFamily = FontFamily(
     Font(R.font.archivo_black, FontWeight.Black),
 )
 
-private val baseTypography = Typography(defaultFontFamily = ArchivoFontFamily)
+// Typography() has no single "apply to every style" shortcut in Material3 (unlike Material2) -
+// fontFamily is set explicitly on all 15 styles below so Archivo is used everywhere, not just the
+// ones that also get a weight/letter-spacing override.
+private val baseTypography = Typography()
 private val ModernistTypography = baseTypography.copy(
-    headlineLarge = baseTypography.headlineLarge.copy(fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
-    headlineMedium = baseTypography.headlineMedium.copy(fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
-    titleLarge = baseTypography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-    titleMedium = baseTypography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-    labelLarge = baseTypography.labelLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp),
-    labelMedium = baseTypography.labelMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp),
-    labelSmall = baseTypography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp),
-    bodyLarge = baseTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-    bodyMedium = baseTypography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+    displayLarge = baseTypography.displayLarge.copy(fontFamily = ArchivoFontFamily),
+    displayMedium = baseTypography.displayMedium.copy(fontFamily = ArchivoFontFamily),
+    displaySmall = baseTypography.displaySmall.copy(fontFamily = ArchivoFontFamily),
+    headlineLarge = baseTypography.headlineLarge.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
+    headlineMedium = baseTypography.headlineMedium.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
+    headlineSmall = baseTypography.headlineSmall.copy(fontFamily = ArchivoFontFamily),
+    titleLarge = baseTypography.titleLarge.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold),
+    titleMedium = baseTypography.titleMedium.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold),
+    titleSmall = baseTypography.titleSmall.copy(fontFamily = ArchivoFontFamily),
+    labelLarge = baseTypography.labelLarge.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp),
+    labelMedium = baseTypography.labelMedium.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp),
+    labelSmall = baseTypography.labelSmall.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp),
+    bodyLarge = baseTypography.bodyLarge.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.SemiBold),
+    bodyMedium = baseTypography.bodyMedium.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.SemiBold),
+    bodySmall = baseTypography.bodySmall.copy(fontFamily = ArchivoFontFamily),
 )
 
 private val ModernistShapes = Shapes(
