@@ -7,9 +7,12 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.catovicajdin.expensetracker.R
 
 /**
  * "Modernist" tokens ported from the Budget Tracker Claude Design handoff: off-white paper, a red
@@ -47,10 +50,15 @@ private val ModernistColors = lightColorScheme(
     error = ColorAccent,
 )
 
-// A bold system sans stands in for the design's Archivo font here: bundling/downloading a real
-// font is a integration this session couldn't verify compiles without another build-breaking
-// gamble (three already this session). Swap in real Archivo later if wanted.
-private val baseTypography = Typography()
+/** Static instances (width=100) cut from Google's Archivo variable font, matching the design's spec. */
+private val ArchivoFontFamily = FontFamily(
+    Font(R.font.archivo_regular, FontWeight.Normal),
+    Font(R.font.archivo_semibold, FontWeight.SemiBold),
+    Font(R.font.archivo_extrabold, FontWeight.ExtraBold),
+    Font(R.font.archivo_black, FontWeight.Black),
+)
+
+private val baseTypography = Typography(defaultFontFamily = ArchivoFontFamily)
 private val ModernistTypography = baseTypography.copy(
     headlineLarge = baseTypography.headlineLarge.copy(fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
     headlineMedium = baseTypography.headlineMedium.copy(fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
