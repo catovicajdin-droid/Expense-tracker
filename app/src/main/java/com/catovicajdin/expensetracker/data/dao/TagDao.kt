@@ -37,6 +37,12 @@ interface TagDao {
     @Query("DELETE FROM tags WHERE id = :id")
     suspend fun delete(id: Long)
 
+    /** One-time cleanup for tags saved with a leading "#" before entry stripped it - OR IGNORE so a
+     * collision with an already-clean tag of the same name just drops the duplicate instead of
+     * failing the whole statement. */
+    @Query("UPDATE OR IGNORE tags SET name = TRIM(name, '#') WHERE name LIKE '#%'")
+    suspend fun stripLeadingHashFromNames()
+
     @Query(
         """
         SELECT tt.transactionId as transactionId, t.name as tagName

@@ -75,6 +75,7 @@ fun TagSelector(
     }
 }
 
-/** Splits "a, b, ,c" into ["a", "b", "c"] - blanks and surrounding whitespace dropped. */
+/** Splits "a, b, ,c" into ["a", "b", "c"] - blanks and surrounding whitespace dropped. Every tag is
+ * displayed with a leading "#" already, so a stray one typed here would double up - strip it. */
 fun parseTagNames(text: String): List<String> =
-    text.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    text.split(",").map { it.trim().trimStart('#').trim() }.filter { it.isNotEmpty() }

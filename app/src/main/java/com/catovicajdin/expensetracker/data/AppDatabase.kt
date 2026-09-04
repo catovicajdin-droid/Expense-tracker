@@ -69,6 +69,9 @@ abstract class AppDatabase : RoomDatabase() {
                             CategoryColors.byName.forEach { (name, color) ->
                                 db.categoryDao().updateColor(name, color)
                             }
+                            // Data-only cleanup: tags entered with a leading "#" before entry
+                            // stripped it end up double-hashed everywhere they're displayed.
+                            db.tagDao().stripLeadingHashFromNames()
                         }
                     }
             }
