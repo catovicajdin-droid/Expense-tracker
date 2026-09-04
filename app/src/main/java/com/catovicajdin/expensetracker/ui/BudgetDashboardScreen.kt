@@ -137,9 +137,9 @@ private fun BudgetCellView(cell: BudgetCell, onClick: () -> Unit) {
     val over = budget != null && cell.spent > budget
     val fraction = if (budget != null && budget > 0.0) (cell.spent / budget).coerceIn(0.0, 1.0).toFloat() else 0f
     val fillColor = if (over) {
-        lerp(Color.White, Accent800, 0.2f)
+        lerp(Color.White, Accent800, 0.32f)
     } else {
-        lerp(Color.White, categoryColor(cell.category), 0.13f)
+        lerp(Color.White, categoryColor(cell.category), 0.26f)
     }
 
     Card(
