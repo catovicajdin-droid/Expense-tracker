@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
 import com.catovicajdin.expensetracker.data.TransactionRow
+import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
@@ -187,16 +188,19 @@ fun TransactionDetailScreen(
         if (current != null) {
             EditTransactionDialog(
                 transaction = current,
+                categories = categories,
                 allTags = tags,
                 currentTagIds = editingTagIds,
                 onDismiss = { showEdit = false },
                 onDeleteTag = { tag -> scope.launch { db.tagDao().delete(tag.id) } },
-                onSave = { postedAt, tagIds, newTagNames ->
+                onSave = { categoryId, postedAt, tagIds, newTagNames ->
                     scope.launch {
                         val newTagIds = newTagNames.map { db.tagDao().getOrCreate(it) }
+                        db.transactionDao().assignCategory(transactionId, categoryId)
                         db.transactionDao().updatePostedAt(transactionId, postedAt)
                         db.tagDao().replaceTagsForTransaction(transactionId, tagIds + newTagIds)
                         row = db.transactionDao().byIdWithSource(transactionId)
+                        categoryId?.let { BudgetAlerts.checkCategory(context, it) }
                     }
                     showEdit = false
                 },
