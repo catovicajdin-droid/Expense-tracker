@@ -15,15 +15,18 @@ import androidx.compose.ui.unit.sp
 import com.catovicajdin.expensetracker.R
 
 /**
- * "Modernist" tokens ported from the Budget Tracker Claude Design handoff: off-white paper, a red
- * accent, flat/square edges (radius 0 throughout), bold condensed-feel type, hairline dividers
- * instead of elevation. Light theme only, per the design - no dark variant defined here.
+ * "Modernist" tokens, refreshed per the second design pass: soft white cards with subtle shadows
+ * on a light-gray paper (replacing the earlier flat/bordered/square look), rounded corners
+ * throughout, and a two-font system - Archivo for headings and numbers, Instrument Sans for body
+ * and UI chrome. Light theme only, per the design - no dark variant defined here.
  */
 val ColorBg = Color(0xFFF3F2F2)
-val ColorSurface = Color(0xFFEAE9E9)
+val ScreenBg = Color(0xFFEEECEC)
+val CardBg = Color(0xFFFFFFFF)
 val ColorText = Color(0xFF201E1D)
 val ColorAccent = Color(0xFFEC3013)
-val ColorDivider = Color(0x66201E1D)
+val DividerSoft = Color(0x17201E1D)
+val InputBg = ScreenBg
 
 val Neutral200 = Color(0xFFEAE7E7)
 val Neutral300 = Color(0xFFD7D3D3)
@@ -39,18 +42,18 @@ private val ModernistColors = lightColorScheme(
     primary = ColorAccent,
     onPrimary = ColorBg,
     secondary = Accent800,
-    onSecondary = ColorBg,
-    background = ColorBg,
+    onSecondary = CardBg,
+    background = ScreenBg,
     onBackground = ColorText,
-    surface = ColorSurface,
+    surface = CardBg,
     onSurface = ColorText,
-    surfaceVariant = Neutral200,
-    onSurfaceVariant = ColorText,
-    outline = ColorDivider,
+    surfaceVariant = InputBg,
+    onSurfaceVariant = ColorText.copy(alpha = 0.62f),
+    outline = DividerSoft,
     error = ColorAccent,
 )
 
-/** Static instances (width=100) cut from Google's Archivo variable font, matching the design's spec. */
+/** Static instances (width=100) cut from Google's Archivo variable font - headings and numbers. */
 private val ArchivoFontFamily = FontFamily(
     Font(R.font.archivo_regular, FontWeight.Normal),
     Font(R.font.archivo_semibold, FontWeight.SemiBold),
@@ -58,34 +61,56 @@ private val ArchivoFontFamily = FontFamily(
     Font(R.font.archivo_black, FontWeight.Black),
 )
 
+/** Static instances (width=100) cut from Google's Instrument Sans variable font - body and UI chrome. */
+private val InstrumentSansFontFamily = FontFamily(
+    Font(R.font.instrument_regular, FontWeight.Normal),
+    Font(R.font.instrument_medium, FontWeight.Medium),
+    Font(R.font.instrument_semibold, FontWeight.SemiBold),
+    Font(R.font.instrument_bold, FontWeight.Bold),
+)
+
+/** OpenType tabular-figures feature, matching the design's font-variant-numeric:tabular-nums on every amount. */
+private const val TabularNums = "tnum"
+
 // Typography() has no single "apply to every style" shortcut in Material3 (unlike Material2) -
-// fontFamily is set explicitly on all 15 styles below so Archivo is used everywhere, not just the
-// ones that also get a weight/letter-spacing override.
+// fontFamily is set explicitly on all 15 styles below. Archivo carries headlines/titles (screen
+// titles and every money figure); Instrument Sans carries body text, labels, and button chrome.
 private val baseTypography = Typography()
 private val ModernistTypography = baseTypography.copy(
-    displayLarge = baseTypography.displayLarge.copy(fontFamily = ArchivoFontFamily),
-    displayMedium = baseTypography.displayMedium.copy(fontFamily = ArchivoFontFamily),
-    displaySmall = baseTypography.displaySmall.copy(fontFamily = ArchivoFontFamily),
-    headlineLarge = baseTypography.headlineLarge.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
-    headlineMedium = baseTypography.headlineMedium.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
-    headlineSmall = baseTypography.headlineSmall.copy(fontFamily = ArchivoFontFamily),
-    titleLarge = baseTypography.titleLarge.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold),
-    titleMedium = baseTypography.titleMedium.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold),
-    titleSmall = baseTypography.titleSmall.copy(fontFamily = ArchivoFontFamily),
-    labelLarge = baseTypography.labelLarge.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp),
-    labelMedium = baseTypography.labelMedium.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp),
-    labelSmall = baseTypography.labelSmall.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp),
-    bodyLarge = baseTypography.bodyLarge.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.SemiBold),
-    bodyMedium = baseTypography.bodyMedium.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.SemiBold),
-    bodySmall = baseTypography.bodySmall.copy(fontFamily = ArchivoFontFamily),
+    displayLarge = baseTypography.displayLarge.copy(fontFamily = InstrumentSansFontFamily),
+    displayMedium = baseTypography.displayMedium.copy(fontFamily = InstrumentSansFontFamily),
+    displaySmall = baseTypography.displaySmall.copy(fontFamily = InstrumentSansFontFamily),
+    headlineLarge = baseTypography.headlineLarge.copy(
+        fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold,
+        fontSize = 44.sp, letterSpacing = (-1).sp, fontFeatureSettings = TabularNums,
+    ),
+    headlineMedium = baseTypography.headlineMedium.copy(
+        fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
+    ),
+    headlineSmall = baseTypography.headlineSmall.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold),
+    titleLarge = baseTypography.titleLarge.copy(
+        fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold,
+        letterSpacing = (-0.5).sp, fontFeatureSettings = TabularNums,
+    ),
+    titleMedium = baseTypography.titleMedium.copy(
+        fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold,
+        letterSpacing = (-0.2).sp, fontFeatureSettings = TabularNums,
+    ),
+    titleSmall = baseTypography.titleSmall.copy(fontFamily = ArchivoFontFamily, fontWeight = FontWeight.ExtraBold),
+    labelLarge = baseTypography.labelLarge.copy(fontFamily = InstrumentSansFontFamily, fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp),
+    labelMedium = baseTypography.labelMedium.copy(fontFamily = InstrumentSansFontFamily, fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp),
+    labelSmall = baseTypography.labelSmall.copy(fontFamily = InstrumentSansFontFamily, fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp),
+    bodyLarge = baseTypography.bodyLarge.copy(fontFamily = InstrumentSansFontFamily, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.1).sp),
+    bodyMedium = baseTypography.bodyMedium.copy(fontFamily = InstrumentSansFontFamily, fontWeight = FontWeight.Normal),
+    bodySmall = baseTypography.bodySmall.copy(fontFamily = InstrumentSansFontFamily, fontWeight = FontWeight.Normal),
 )
 
 private val ModernistShapes = Shapes(
-    extraSmall = RoundedCornerShape(0.dp),
-    small = RoundedCornerShape(0.dp),
-    medium = RoundedCornerShape(0.dp),
-    large = RoundedCornerShape(0.dp),
-    extraLarge = RoundedCornerShape(0.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(14.dp),
+    extraLarge = RoundedCornerShape(16.dp),
 )
 
 @Composable

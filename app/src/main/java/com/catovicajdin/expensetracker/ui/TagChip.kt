@@ -21,19 +21,19 @@ fun TagChip(
     onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val background = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val content = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val background = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant
+    val content = if (selected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurfaceVariant
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .padding(end = 8.dp)
-            .background(background)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .background(background, MaterialTheme.shapes.small)
+            .clickable { onToggle() }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
-        Text(tag.name, color = content, modifier = Modifier.clickable { onToggle() })
+        Text("#${tag.name}", style = MaterialTheme.typography.labelLarge, color = content)
         if (onDelete != null) {
-            Text(" ×", color = content, modifier = Modifier.padding(start = 6.dp).clickable { onDelete() })
+            Text(" ×", style = MaterialTheme.typography.labelLarge, color = content, modifier = Modifier.padding(start = 6.dp).clickable { onDelete() })
         }
     }
 }

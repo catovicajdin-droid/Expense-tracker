@@ -5,17 +5,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.entity.TagEntity
+import com.catovicajdin.expensetracker.ui.components.SectionLabel
 
 /** Reusable tag picker used by both the Add and Edit transaction dialogs: existing tags as toggleable chips, plus a comma-separated field for new ones. Owns the delete-confirmation prompt so callers don't have to. */
 @Composable
@@ -29,7 +33,7 @@ fun TagSelector(
 ) {
     var tagPendingDelete by remember { mutableStateOf<TagEntity?>(null) }
 
-    Text("Tags", modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+    SectionLabel("Tags", modifier = Modifier.padding(bottom = 12.dp))
     LazyRow {
         items(allTags) { tag ->
             TagChip(
@@ -37,14 +41,22 @@ fun TagSelector(
                 selected = selectedTagIds.contains(tag.id),
                 onToggle = { onToggle(tag.id) },
                 onDelete = { tagPendingDelete = tag },
+                modifier = Modifier.padding(end = 8.dp),
             )
         }
     }
-    OutlinedTextField(
+    TextField(
         value = newTagText,
         onValueChange = onNewTagTextChange,
-        label = { Text("New tags (comma-separated)") },
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        placeholder = { Text("New tag, comma separated") },
+        colors = TextFieldDefaults.colors(
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            unfocusedIndicatorColor = Color.Transparent,
+            focusedIndicatorColor = Color.Transparent,
+        ),
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
     )
 
     tagPendingDelete?.let { tag ->

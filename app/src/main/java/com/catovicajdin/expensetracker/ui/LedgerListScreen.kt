@@ -1,13 +1,16 @@
 package com.catovicajdin.expensetracker.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +28,7 @@ import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.TransactionRow
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
+import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import com.catovicajdin.expensetracker.ui.components.formatAmount
 import com.catovicajdin.expensetracker.ui.components.sourceLabel
 import java.text.SimpleDateFormat
@@ -62,42 +66,50 @@ fun LedgerListScreen(
     val filterSummaryText = remember(filter, categories, tags) { filterSummary(filter, categories, tags) }
     val sum = remember(rows) { rows.sumOf { it.transaction.amount } }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(20.dp, 16.dp)) {
-            TextButton(onClick = onBack, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                Text("← Back", style = MaterialTheme.typography.labelLarge)
+    Column(
+        modifier = Modifier.fillMaxSize().padding(14.dp, 16.dp, 14.dp, 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp, 2.dp)) {
+            TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
+                Text("← Back", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("Ledger", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 12.dp))
+            Text("Ledger", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 14.dp))
         }
-        Divider2()
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(20.dp, 10.dp),
-        ) {
-            TextButton(
-                onClick = onOpenFilters,
-                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-            ) { Text("Filters", style = MaterialTheme.typography.labelMedium) }
-            Text(
-                filterSummaryText,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(start = 4.dp),
-            )
-            Text(formatAmount(sum), style = MaterialTheme.typography.labelLarge)
-        }
-        Divider2()
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(rows) { row ->
-                LedgerRow(
-                    row = row,
-                    category = categories.find { it.id == row.transaction.categoryId },
-                    tagNames = tagsByTransaction[row.transaction.id].orEmpty(),
-                    dateFormat = dateFormat,
-                    onClick = { onOpenDetail(row.transaction.id) },
+
+        ModernistCard(contentPadding = PaddingValues(20.dp, 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(
+                    onClick = onOpenFilters,
+                    shape = MaterialTheme.shapes.small,
+                    colors = ButtonDefaults.textButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                ) { Text("Filters", style = MaterialTheme.typography.labelLarge) }
+                Text(
+                    filterSummaryText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(start = 12.dp),
                 )
+                Text(formatAmount(sum), style = MaterialTheme.typography.titleSmall)
+            }
+        }
+
+        ModernistCard(modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) {
+            LazyColumn {
+                items(rows) { row ->
+                    LedgerRow(
+                        row = row,
+                        category = categories.find { it.id == row.transaction.categoryId },
+                        tagNames = tagsByTransaction[row.transaction.id].orEmpty(),
+                        dateFormat = dateFormat,
+                        onClick = { onOpenDetail(row.transaction.id) },
+                    )
+                }
             }
         }
     }
@@ -117,20 +129,21 @@ private fun LedgerRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(20.dp, 13.dp),
+                .padding(20.dp, 14.dp),
         ) {
-            CategoryIconBadge(category, size = 28.dp)
-            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(category?.name ?: "Uncategorized", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+            CategoryIconBadge(category, size = 34.dp)
+            Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(category?.name ?: "Uncategorized", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                 Text(
                     "${dateFormat.format(row.transaction.postedAt)} · ${sourceLabel(row.source)}",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
                 if (tagNames.isNotEmpty()) {
                     Text(
                         "#${tagNames.joinToString(" · ")}",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

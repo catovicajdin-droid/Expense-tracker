@@ -1,9 +1,10 @@
 package com.catovicajdin.expensetracker.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,8 +34,9 @@ import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
 import com.catovicajdin.expensetracker.data.TransactionRow
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
-import com.catovicajdin.expensetracker.ui.components.Divider2
+import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
+import com.catovicajdin.expensetracker.ui.components.categoryColor
 import com.catovicajdin.expensetracker.ui.components.formatAmount
 import com.catovicajdin.expensetracker.ui.components.sourceLabel
 import kotlinx.coroutines.launch
@@ -71,23 +74,23 @@ fun TransactionDetailScreen(
     val categorySpent = categoryTotals.find { it.categoryId == transaction?.categoryId }?.total ?: 0.0
     val categoryBudget = categoryBudgets.find { it.categoryId == transaction?.categoryId }?.amount
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(20.dp, 16.dp)) {
-            TextButton(onClick = onBack, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                Text("← Ledger", style = MaterialTheme.typography.labelLarge)
-            }
+    Column(
+        modifier = Modifier.fillMaxSize().padding(14.dp, 16.dp, 14.dp, 0.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp), modifier = Modifier.padding(8.dp, 2.dp)) {
+            Text("← Ledger", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Divider2()
 
         if (transaction == null) {
-            Text("Loading…", modifier = Modifier.padding(20.dp))
+            ModernistCard { Text("Loading…", style = MaterialTheme.typography.bodyLarge) }
             return@Column
         }
 
-        Column(modifier = Modifier.padding(20.dp, 24.dp)) {
+        ModernistCard(contentPadding = PaddingValues(22.dp, 24.dp)) {
             Text(
                 "${sourceLabel(row?.source.orEmpty())} · ${dateFormat.format(transaction.postedAt)}",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
@@ -95,29 +98,30 @@ fun TransactionDetailScreen(
                 style = MaterialTheme.typography.headlineLarge,
                 modifier = Modifier.padding(top = 8.dp),
             )
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 14.dp)) {
                 CategoryIconBadge(category, size = 40.dp)
-                Text(category?.name ?: "Uncategorized", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 10.dp))
+                Text(category?.name ?: "Uncategorized", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 12.dp))
             }
         }
-        Divider2()
 
-        Column(modifier = Modifier.padding(20.dp, 18.dp)) {
+        ModernistCard {
             SectionLabel("Category this month")
             if (categoryBudget != null && categoryBudget > 0.0) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom,
                 ) {
                     Text("${formatAmount(categorySpent)} of ${formatAmount(categoryBudget)}", style = MaterialTheme.typography.bodyMedium)
-                    Text("${(categorySpent / categoryBudget * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
+                    Text("${(categorySpent / categoryBudget * 100).toInt()}%", style = MaterialTheme.typography.titleSmall)
                 }
-                Box(modifier = Modifier.fillMaxWidth().height(10.dp).padding(top = 8.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                val pill = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50)
+                Box(modifier = Modifier.fillMaxWidth().height(10.dp).padding(top = 10.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), pill)) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth((categorySpent / categoryBudget).coerceIn(0.0, 1.0).toFloat())
                             .height(10.dp)
-                            .background(MaterialTheme.colorScheme.secondary),
+                            .background(categoryColor(category), pill),
                     )
                 }
             } else {
@@ -125,55 +129,57 @@ fun TransactionDetailScreen(
                     "Spent ${formatAmount(categorySpent)} so far, no budget set",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = 12.dp),
                 )
             }
         }
-        Divider2()
 
-        Column(modifier = Modifier.padding(20.dp, 18.dp)) {
+        ModernistCard {
             SectionLabel("Tags")
             if (tagNames.isEmpty()) {
                 Text(
                     "None",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = 10.dp),
                 )
             } else {
-                LazyRow(modifier = Modifier.padding(top = 8.dp)) {
+                LazyRow(modifier = Modifier.padding(top = 10.dp)) {
                     items(tagNames) { name ->
-                        Box(
+                        Text(
+                            "#$name",
+                            style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier
                                 .padding(end = 8.dp)
-                                .border(1.dp, MaterialTheme.colorScheme.outline)
-                                .padding(9.dp, 4.dp),
-                        ) {
-                            Text("#$name", style = MaterialTheme.typography.labelMedium)
-                        }
+                                .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
+                                .padding(13.dp, 9.dp),
+                        )
                     }
                 }
             }
         }
 
         Box(modifier = Modifier.weight(1f))
-        Divider2()
-        Row(modifier = Modifier.fillMaxWidth()) {
-            TextButton(
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
                 onClick = {
                     scope.launch { editingTagIds = db.tagDao().tagIdsForTransaction(transactionId).toSet() }
                     showEdit = true
                 },
                 shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
+                modifier = Modifier.weight(1f),
             ) { Text("Edit") }
-            TextButton(
+            Button(
                 onClick = { showDeleteConfirm = true },
                 shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.secondary),
-                modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.secondary),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
+                modifier = Modifier.weight(1f),
             ) { Text("Delete") }
         }
+        Box(modifier = Modifier.height(12.dp))
     }
 
     if (showEdit) {

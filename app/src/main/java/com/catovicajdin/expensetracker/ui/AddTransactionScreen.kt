@@ -2,7 +2,10 @@ package com.catovicajdin.expensetracker.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,9 +23,10 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -33,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -43,7 +48,7 @@ import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.parseAmountInput
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
-import com.catovicajdin.expensetracker.ui.components.Divider2
+import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -93,59 +98,66 @@ fun AddTransactionScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(20.dp, 16.dp)) {
-            TextButton(onClick = onCancel, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                Text("← Cancel", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+    Column(
+        modifier = Modifier.fillMaxSize().padding(14.dp, 16.dp, 14.dp, 0.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp, 2.dp)) {
+            TextButton(onClick = onCancel, contentPadding = PaddingValues(0.dp)) {
+                Text("← Cancel", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
                 if (resolvingRawId != null) "Resolve transaction" else "Add transaction",
                 style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(start = 12.dp),
+                modifier = Modifier.padding(start = 14.dp),
             )
         }
-        Divider2()
 
-        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                SectionLabel("Amount · BAM")
-                OutlinedTextField(
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            ModernistCard {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    SectionLabel("Amount · BAM")
+                    Text(dateFormat.format(postedAt), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { showDatePicker = true })
+                }
+                TextField(
                     value = amountText,
                     onValueChange = { amountText = it },
                     placeholder = { Text("0.00") },
-                    textStyle = MaterialTheme.typography.headlineMedium,
+                    textStyle = MaterialTheme.typography.headlineLarge,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    colors = TextFieldDefaults.colors(
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
+                        focusedIndicatorColor = MaterialTheme.colorScheme.secondary,
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 )
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                    Text(
-                        "Cash and anything the bank never pushes",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(onClick = { showDatePicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                        Text(dateFormat.format(postedAt), style = MaterialTheme.typography.labelMedium)
+                Text(
+                    "Cash and anything the bank never pushes",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
+
+            ModernistCard(contentPadding = PaddingValues(0.dp, 18.dp, 0.dp, 8.dp)) {
+                SectionLabel("Category", modifier = Modifier.padding(start = 20.dp, bottom = 4.dp))
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxWidth().height((((categories.size + 1) / 2) * 60).dp),
+                ) {
+                    items(categories) { category ->
+                        CategoryPickButton(
+                            category = category,
+                            selected = selectedCategoryId == category.id,
+                            onClick = { selectedCategoryId = category.id },
+                        )
                     }
                 }
             }
-            Divider2()
 
-            SectionLabel("Category", modifier = Modifier.padding(20.dp, 14.dp, 20.dp, 6.dp))
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).height((((categories.size + 1) / 2) * 60).dp),
-            ) {
-                items(categories) { category ->
-                    CategoryPickButton(
-                        category = category,
-                        selected = selectedCategoryId == category.id,
-                        onClick = { selectedCategoryId = category.id },
-                    )
-                }
-            }
-
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            ModernistCard {
                 TagSelector(
                     allTags = tags,
                     selectedTagIds = selectedTagIds,
@@ -162,25 +174,28 @@ fun AddTransactionScreen(
             }
         }
 
-        Divider2()
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth().padding(20.dp, 12.dp),
-        ) {
-            Text(
-                categories.find { it.id == selectedCategoryId }?.name ?: "Pick a category",
-                style = MaterialTheme.typography.labelLarge,
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ModernistCard(contentPadding = PaddingValues(20.dp, 14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        categories.find { it.id == selectedCategoryId }?.name ?: "Pick a category",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        amountText.ifBlank { "0.00" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             Button(
                 onClick = { save() },
                 shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.onBackground,
-                    contentColor = MaterialTheme.colorScheme.background,
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onBackground, contentColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth(),
             ) { Text("Save transaction") }
         }
+        Box(modifier = Modifier.height(12.dp))
     }
 
     if (showDatePicker) {
@@ -205,15 +220,15 @@ private fun CategoryPickButton(category: CategoryEntity, selected: Boolean, onCl
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background)
-            .padding(16.dp, 14.dp),
+            .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
+            .padding(18.dp, 14.dp),
     ) {
-        CategoryIconBadge(category, size = 24.dp)
+        CategoryIconBadge(category, size = 26.dp)
         Text(
             category.name,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
-            modifier = Modifier.padding(start = 8.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            modifier = Modifier.padding(start = 10.dp),
         )
     }
 }
