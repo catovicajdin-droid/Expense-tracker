@@ -18,13 +18,17 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -61,14 +65,23 @@ fun BudgetDashboardScreen(
 
     val budgetByCategory = remember(categoryBudgets) { categoryBudgets.associate { it.categoryId to it.amount } }
     val spentByCategory = remember(categoryTotals) { categoryTotals.associate { it.categoryId to it.total } }
-    val cells = remember(categories, budgetByCategory, spentByCategory) {
-        categories.map { category ->
+    var sortOption by remember { mutableStateOf(BudgetSort.PERCENT_SPENT) }
+    val cells = remember(categories, budgetByCategory, spentByCategory, sortOption) {
+        val unsorted = categories.map { category ->
             BudgetCell(
                 category = category,
                 spent = spentByCategory[category.id] ?: 0.0,
                 budget = budgetByCategory[category.id],
             )
-        }.sortedByDescending { it.spent }
+        }
+        when (sortOption) {
+            BudgetSort.BUDGET_SIZE -> unsorted.sortedByDescending { it.budget ?: Double.NEGATIVE_INFINITY }
+            BudgetSort.AMOUNT_SPENT -> unsorted.sortedByDescending { it.spent }
+            BudgetSort.PERCENT_SPENT -> unsorted.sortedByDescending {
+                val budget = it.budget
+                if (budget != null && budget > 0.0) it.spent / budget else Double.NEGATIVE_INFINITY
+            }
+        }
     }
     val overCount = cells.count { it.budget != null && it.spent > it.budget }
 
@@ -96,6 +109,28 @@ fun BudgetDashboardScreen(
                 val pctText = if (budget != null && budget > 0.0) "${(totalSpent / budget * 100).toInt()}% of ${formatAmount(budget)}" else "No overall budget set"
                 Text(pctText, style = MaterialTheme.typography.bodyLarge)
                 Text("$overCount over budget", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+            }
+        }
+
+        var sortMenuExpanded by remember { mutableStateOf(false) }
+        Box(modifier = Modifier.padding(8.dp, 0.dp)) {
+            TextButton(onClick = { sortMenuExpanded = true }, contentPadding = PaddingValues(0.dp)) {
+                Text(
+                    "Sort: ${sortOption.label} ▾",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            DropdownMenu(expanded = sortMenuExpanded, onDismissRequest = { sortMenuExpanded = false }) {
+                BudgetSort.values().forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label) },
+                        onClick = {
+                            sortOption = option
+                            sortMenuExpanded = false
+                        },
+                    )
+                }
             }
         }
 
@@ -127,6 +162,12 @@ fun BudgetDashboardScreen(
         }
         Box(modifier = Modifier.height(12.dp))
     }
+}
+
+private enum class BudgetSort(val label: String) {
+    PERCENT_SPENT("% of budget spent"),
+    AMOUNT_SPENT("Amount spent"),
+    BUDGET_SIZE("Budget size"),
 }
 
 private data class BudgetCell(val category: CategoryEntity, val spent: Double, val budget: Double?)
