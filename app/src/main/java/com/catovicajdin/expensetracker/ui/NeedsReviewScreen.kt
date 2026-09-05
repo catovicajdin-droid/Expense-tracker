@@ -15,18 +15,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,7 +36,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.NotificationRepository
-import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
+import com.catovicajdin.expensetracker.data.entity.RawNotificationEntity
+import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -43,14 +46,15 @@ import java.util.Locale
 @Composable
 fun NeedsReviewScreen(
     onBack: () -> Unit,
-    onResolve: (rawId: Long, prefillCategoryId: Long, prefillPostedAt: Long) -> Unit,
 ) {
     val context = LocalContext.current
     val db = AppDatabase.get(context)
     val scope = rememberCoroutineScope()
     val items by db.rawNotificationDao().needsReview().collectAsState(initial = emptyList())
     val categories by db.categoryDao().all().collectAsState(initial = emptyList())
+    val tags by db.tagDao().all().collectAsState(initial = emptyList())
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
+    var reviewingRaw by remember { mutableStateOf<RawNotificationEntity?>(null) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(14.dp, 16.dp, 14.dp, 0.dp),
@@ -109,32 +113,30 @@ fun NeedsReviewScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 10.dp),
                             )
-                            Row(modifier = Modifier.padding(top = 14.dp)) {
-                                categories.take(4).forEach { category ->
-                                    OutlinedButton(
-                                        onClick = { onResolve(raw.id, category.id, raw.postedAt) },
-                                        shape = MaterialTheme.shapes.small,
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            contentColor = MaterialTheme.colorScheme.onSurface,
-                                        ),
-                                        border = null,
-                                        contentPadding = PaddingValues(12.dp, 8.dp),
-                                        modifier = Modifier.padding(end = 8.dp),
-                                    ) {
-                                        CategoryIconBadge(category, size = 18.dp)
-                                        Text(
-                                            category.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            modifier = Modifier.padding(start = 6.dp),
-                                        )
-                                    }
-                                }
-                                TextButton(onClick = {
-                                    scope.launch { NotificationRepository(db).dismissReview(raw.id) }
-                                }) {
-                                    Text("Dismiss", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Button(
+                                    onClick = { reviewingRaw = raw },
+                                    shape = MaterialTheme.shapes.medium,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.onBackground,
+                                        contentColor = MaterialTheme.colorScheme.surface,
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("Accept") }
+                                Button(
+                                    onClick = {
+                                        scope.launch { NotificationRepository(db).dismissReview(raw.id) }
+                                    },
+                                    shape = MaterialTheme.shapes.medium,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.secondary,
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("Deny") }
                             }
                         }
                     }
@@ -142,5 +144,24 @@ fun NeedsReviewScreen(
             }
         }
         Box(modifier = Modifier.height(12.dp))
+    }
+
+    reviewingRaw?.let { raw ->
+        ResolveReviewDialog(
+            categories = categories,
+            allTags = tags,
+            onDismiss = { reviewingRaw = null },
+            onDeleteTag = { tag -> scope.launch { db.tagDao().delete(tag.id) } },
+            onAccept = { categoryId, amount, tagIds, newTagNames ->
+                scope.launch {
+                    val newTagIds = newTagNames.map { db.tagDao().getOrCreate(it) }
+                    val transactionId = NotificationRepository(db).resolveReview(raw.id, categoryId, amount, raw.postedAt)
+                    db.tagDao().replaceTagsForTransaction(transactionId, tagIds + newTagIds)
+                    categoryId?.let { BudgetAlerts.checkCategory(context, it) }
+                    BudgetAlerts.checkOverall(context)
+                }
+                reviewingRaw = null
+            },
+        )
     }
 }

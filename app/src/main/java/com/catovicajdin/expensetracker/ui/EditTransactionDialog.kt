@@ -124,8 +124,9 @@ fun EditTransactionDialog(
     }
 }
 
+/** Shared with ResolveReviewDialog - the Needs Review "accept" step uses the same category picker. */
 @Composable
-private fun CategoryOption(name: String, category: CategoryEntity?, selected: Boolean, onClick: () -> Unit) {
+fun CategoryOption(name: String, category: CategoryEntity?, selected: Boolean, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

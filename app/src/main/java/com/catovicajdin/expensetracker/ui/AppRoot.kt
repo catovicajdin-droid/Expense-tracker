@@ -64,15 +64,6 @@ fun AppRoot(
                 )
                 is Screen.NeedsReview -> NeedsReviewScreen(
                     onBack = { onNavigate(Screen.Home) },
-                    onResolve = { rawId, categoryId, postedAt ->
-                        onNavigate(
-                            Screen.AddTransaction(
-                                prefillCategoryId = categoryId,
-                                prefillPostedAt = postedAt,
-                                resolvingRawId = rawId,
-                            )
-                        )
-                    },
                 )
                 is Screen.AddTransaction -> AddTransactionScreen(
                     prefillCategoryId = screen.prefillCategoryId,
