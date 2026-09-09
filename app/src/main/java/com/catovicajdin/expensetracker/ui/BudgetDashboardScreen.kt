@@ -177,10 +177,14 @@ private fun BudgetCellView(cell: BudgetCell, onClick: () -> Unit) {
     val budget = cell.budget
     val over = budget != null && cell.spent > budget
     val fraction = if (budget != null && budget > 0.0) (cell.spent / budget).coerceIn(0.0, 1.0).toFloat() else 0f
+    // The fill deepens as the budget fills up, so how full a cell is reads from colour as well as
+    // height. Kept to a narrow band: too faint at the low end and the tint stops looking like the
+    // category's own colour, too wide a range and a grid of these turns noisy. Over-budget sits
+    // above the top of that band so it stays the loudest state in the grid.
     val fillColor = if (over) {
-        lerp(Color.White, Accent800, 0.32f)
+        lerp(Color.White, Accent800, 0.46f)
     } else {
-        lerp(Color.White, categoryColor(cell.category), 0.26f)
+        lerp(Color.White, categoryColor(cell.category), 0.20f + 0.22f * fraction)
     }
 
     Card(

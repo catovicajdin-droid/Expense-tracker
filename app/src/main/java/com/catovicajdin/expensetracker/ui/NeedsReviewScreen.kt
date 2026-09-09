@@ -68,7 +68,7 @@ fun NeedsReviewScreen(
                 Text("Needs review", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 14.dp))
             }
             Text(
-                "Notifications the parser could not read. Assign a category to keep the spend, or dismiss the row.",
+                "Notifications the parser could not read. Accept one to enter it as a transaction, or deny it to drop the row.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
