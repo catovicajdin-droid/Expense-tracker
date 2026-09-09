@@ -111,6 +111,20 @@ fun BudgetDashboardScreen(
                 Text(pctText, style = MaterialTheme.typography.bodyLarge)
                 Text("$overCount over budget", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
             }
+            if (budget != null && budget > 0.0) {
+                val remaining = budget - totalSpent
+                val remainingText = if (remaining >= 0.0) {
+                    "${formatAmount(remaining)} left"
+                } else {
+                    "over by ${formatAmount(-remaining)}"
+                }
+                Text(
+                    "${formatAmount(totalSpent)} spent · $remainingText",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
         }
 
         var sortMenuExpanded by remember { mutableStateOf(false) }
