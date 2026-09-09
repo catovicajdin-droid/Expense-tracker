@@ -2,6 +2,7 @@ package com.catovicajdin.expensetracker.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,13 +12,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,11 +32,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.TransactionRow
+import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import com.catovicajdin.expensetracker.ui.components.formatAmount
 import com.catovicajdin.expensetracker.ui.components.sourceLabel
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -43,6 +51,7 @@ fun LedgerListScreen(
 ) {
     val context = LocalContext.current
     val db = AppDatabase.get(context)
+    val scope = rememberCoroutineScope()
 
     val categories by db.categoryDao().all().collectAsState(initial = emptyList())
     val tags by db.tagDao().all().collectAsState(initial = emptyList())
@@ -105,9 +114,16 @@ fun LedgerListScreen(
                     LedgerRow(
                         row = row,
                         category = categories.find { it.id == row.transaction.categoryId },
+                        categories = categories,
                         tagNames = tagsByTransaction[row.transaction.id].orEmpty(),
                         dateFormat = dateFormat,
                         onClick = { onOpenDetail(row.transaction.id) },
+                        onReassign = { categoryId ->
+                            scope.launch {
+                                db.transactionDao().assignCategory(row.transaction.id, categoryId)
+                                categoryId?.let { BudgetAlerts.checkCategory(context, it) }
+                            }
+                        },
                     )
                 }
             }
@@ -119,10 +135,14 @@ fun LedgerListScreen(
 private fun LedgerRow(
     row: TransactionRow,
     category: com.catovicajdin.expensetracker.data.entity.CategoryEntity?,
+    categories: List<com.catovicajdin.expensetracker.data.entity.CategoryEntity>,
     tagNames: List<String>,
     dateFormat: SimpleDateFormat,
     onClick: () -> Unit,
+    onReassign: (Long?) -> Unit,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
     Column {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -131,7 +151,33 @@ private fun LedgerRow(
                 .clickable(onClick = onClick)
                 .padding(20.dp, 14.dp),
         ) {
-            CategoryIconBadge(category, size = 34.dp)
+            // Tapping the badge reassigns the category in place; the badge's own clickable consumes
+            // the tap so it never falls through to the row's open-detail click.
+            Box {
+                Box(modifier = Modifier.clickable { menuExpanded = true }) {
+                    CategoryIconBadge(category, size = 34.dp)
+                }
+                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Uncategorized") },
+                        leadingIcon = { CategoryIconBadge(null, size = 22.dp) },
+                        onClick = {
+                            onReassign(null)
+                            menuExpanded = false
+                        },
+                    )
+                    categories.forEach { candidate ->
+                        DropdownMenuItem(
+                            text = { Text(candidate.name) },
+                            leadingIcon = { CategoryIconBadge(candidate, size = 22.dp) },
+                            onClick = {
+                                onReassign(candidate.id)
+                                menuExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
             Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
                 Text(category?.name ?: "Uncategorized", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                 Text(
