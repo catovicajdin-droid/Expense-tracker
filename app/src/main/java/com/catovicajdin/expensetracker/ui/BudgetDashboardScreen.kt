@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
@@ -204,7 +205,14 @@ private fun BudgetCellView(cell: BudgetCell, onClick: () -> Unit) {
             Column(modifier = Modifier.fillMaxSize().padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CategoryIconBadge(cell.category, size = 26.dp, modifier = Modifier.padding(end = 8.dp))
-                    Text(cell.category.name, style = MaterialTheme.typography.bodyLarge)
+                    // The cell is a fixed 138dp tall, so a name that wraps past two lines would push
+                    // the amount and status text out of the bottom - clip it to one line instead.
+                    Text(
+                        cell.category.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
                     Text(formatAmount(cell.spent), style = MaterialTheme.typography.titleLarge)
