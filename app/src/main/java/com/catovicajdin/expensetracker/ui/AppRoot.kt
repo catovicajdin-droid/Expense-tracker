@@ -61,6 +61,10 @@ fun AppRoot(
                 )
                 is Screen.BudgetSettings -> BudgetSettingsScreen(
                     onBack = { onNavigate(Screen.BudgetDashboard) },
+                    onOpenCategories = { onNavigate(Screen.Categories) },
+                )
+                is Screen.Categories -> CategoriesScreen(
+                    onBack = { onNavigate(Screen.BudgetSettings) },
                 )
                 is Screen.NeedsReview -> NeedsReviewScreen(
                     onBack = { onNavigate(Screen.Home) },

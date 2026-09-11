@@ -75,14 +75,7 @@ fun BudgetDashboardScreen(
                 budget = budgetByCategory[category.id],
             )
         }
-        when (sortOption) {
-            BudgetSort.BUDGET_SIZE -> unsorted.sortedByDescending { it.budget ?: Double.NEGATIVE_INFINITY }
-            BudgetSort.AMOUNT_SPENT -> unsorted.sortedByDescending { it.spent }
-            BudgetSort.PERCENT_SPENT -> unsorted.sortedByDescending {
-                val budget = it.budget
-                if (budget != null && budget > 0.0) it.spent / budget else Double.NEGATIVE_INFINITY
-            }
-        }
+        unsorted.sortedForBudget(sortOption, { it.category }, { it.spent }, { it.budget })
     }
     val overCount = cells.count { it.budget != null && it.spent > it.budget }
 
@@ -127,27 +120,11 @@ fun BudgetDashboardScreen(
             }
         }
 
-        var sortMenuExpanded by remember { mutableStateOf(false) }
-        Box(modifier = Modifier.padding(8.dp, 0.dp)) {
-            TextButton(onClick = { sortMenuExpanded = true }, contentPadding = PaddingValues(0.dp)) {
-                Text(
-                    "Sort: ${sortOption.label} ▾",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            DropdownMenu(expanded = sortMenuExpanded, onDismissRequest = { sortMenuExpanded = false }) {
-                BudgetSort.values().forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label) },
-                        onClick = {
-                            sortOption = option
-                            sortMenuExpanded = false
-                        },
-                    )
-                }
-            }
-        }
+        BudgetSortSelector(
+            selected = sortOption,
+            onSelect = { sortOption = it },
+            modifier = Modifier.padding(8.dp, 0.dp),
+        )
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -179,10 +156,30 @@ fun BudgetDashboardScreen(
     }
 }
 
-private enum class BudgetSort(val label: String) {
-    PERCENT_SPENT("% of budget spent"),
-    AMOUNT_SPENT("Amount spent"),
-    BUDGET_SIZE("Budget size"),
+/** Shared by the dashboard grid and the edit-budgets list. */
+@Composable
+fun BudgetSortSelector(selected: BudgetSort, onSelect: (BudgetSort) -> Unit, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        TextButton(onClick = { expanded = true }, contentPadding = PaddingValues(0.dp)) {
+            Text(
+                "Sort: ${selected.label} ▾",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            BudgetSort.values().forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = {
+                        onSelect(option)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
 }
 
 private data class BudgetCell(val category: CategoryEntity, val spent: Double, val budget: Double?)
