@@ -12,7 +12,12 @@ interface CategoryDao {
     @Insert
     suspend fun insert(category: CategoryEntity): Long
 
-    @Query("SELECT * FROM categories ORDER BY sortOrder")
+    /**
+     * Alphabetical, case-insensitive, everywhere categories are listed - the pickers, the budget
+     * grid, the manage screen. Ordering is fixed here rather than stored per row so there's nothing
+     * for one screen to reorder out from under another.
+     */
+    @Query("SELECT * FROM categories ORDER BY name COLLATE NOCASE")
     fun all(): Flow<List<CategoryEntity>>
 
     @Query("SELECT * FROM categories WHERE id = :id")
@@ -33,20 +38,7 @@ interface CategoryDao {
     @Query("UPDATE categories SET isQuickPick = :isQuickPick WHERE id = :id")
     suspend fun updateQuickPick(id: Long, isQuickPick: Boolean)
 
-    @Query("UPDATE categories SET sortOrder = :sortOrder WHERE id = :id")
-    suspend fun updateSortOrder(id: Long, sortOrder: Int)
-
-    /**
-     * Renumbers every category to its position in [ids], so the stored order always matches what
-     * the settings list shows. Rewriting all of them rather than swapping a pair also closes the
-     * gaps a deleted category leaves behind.
-     */
-    @Transaction
-    suspend fun applyOrder(ids: List<Long>) {
-        ids.forEachIndexed { index, id -> updateSortOrder(id, index) }
-    }
-
-    /** Creates the category and returns its id, ordered after every existing one. */
+    /** Creates the category and returns its id. */
     @Transaction
     suspend fun create(name: String, icon: String, colorHex: String): Long =
         insert(

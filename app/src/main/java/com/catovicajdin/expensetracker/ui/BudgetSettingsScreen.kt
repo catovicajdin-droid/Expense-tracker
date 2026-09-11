@@ -79,9 +79,9 @@ fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
     val budgetByCategory = remember(categoryBudgets) { categoryBudgets.associate { it.categoryId to it.amount } }
     val sortedTotals = remember(categoryTotals) { categoryTotals.sortedByDescending { it.total } }
 
-    // Defaults to the order arranged on the Categories screen, unlike the dashboard which opens on
-    // whatever is closest to its limit.
-    var sortOption by remember { mutableStateOf(BudgetSort.CATEGORY_ORDER) }
+    // A view preference for this screen alone - the dashboard keeps its own, and neither writes
+    // anything back, so switching here can't disturb the other.
+    var sortOption by remember { mutableStateOf(BudgetSort.ALPHABETICAL) }
     val sortedCategories = remember(categories, spentByCategory, budgetByCategory, sortOption) {
         categories.sortedForBudget(
             sortOption,

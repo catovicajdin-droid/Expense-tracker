@@ -57,10 +57,6 @@ fun CategoriesScreen(onBack: () -> Unit) {
     // Non-null while the editor is open; NewCategory (id 0) means "adding" rather than editing.
     var editingCategory by remember { mutableStateOf<CategoryEntity?>(null) }
 
-    val alreadyAlphabetical = remember(categories) {
-        categories.map { it.name } == categories.map { it.name }.sortedBy { it.lowercase() }
-    }
-
     Column(
         modifier = Modifier.fillMaxSize().padding(14.dp, 16.dp, 14.dp, 0.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -81,48 +77,16 @@ fun CategoriesScreen(onBack: () -> Unit) {
             }
         }
 
-        ModernistCard(contentPadding = PaddingValues(20.dp, 14.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    "${categories.size} categories",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                // Writes the alphabetical order into sortOrder rather than just displaying it that
-                // way, so there's one stored order the arrows keep working against.
-                TextButton(
-                    onClick = {
-                        val alphabetical = categories.sortedBy { it.name.lowercase() }.map { it.id }
-                        scope.launch { db.categoryDao().applyOrder(alphabetical) }
-                    },
-                    enabled = !alreadyAlphabetical && categories.size > 1,
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    Text("Sort A–Z", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
-                }
-            }
-        }
-
         ModernistCard(modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) {
             LazyColumn {
                 itemsIndexed(categories) { index, category ->
-                    fun move(to: Int) {
-                        val reordered = categories.map { it.id }.toMutableList()
-                        reordered.add(to, reordered.removeAt(index))
-                        scope.launch { db.categoryDao().applyOrder(reordered) }
-                    }
-
                     Column {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { editingCategory = category }
-                                .padding(20.dp, 12.dp),
+                                .padding(20.dp, 14.dp),
                         ) {
                             CategoryIconBadge(category, size = 32.dp)
                             Text(
@@ -132,20 +96,11 @@ fun CategoriesScreen(onBack: () -> Unit) {
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f).padding(start = 12.dp),
                             )
-                            TextButton(
-                                onClick = { move(index - 1) },
-                                enabled = index > 0,
-                                contentPadding = PaddingValues(6.dp, 0.dp),
-                            ) {
-                                Text("↑", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            TextButton(
-                                onClick = { move(index + 1) },
-                                enabled = index < categories.lastIndex,
-                                contentPadding = PaddingValues(6.dp, 0.dp),
-                            ) {
-                                Text("↓", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                            Text(
+                                "Edit",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         if (index < categories.lastIndex) Divider2()
                     }
