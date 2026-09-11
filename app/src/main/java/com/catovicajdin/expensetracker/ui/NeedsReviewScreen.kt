@@ -148,6 +148,7 @@ fun NeedsReviewScreen(
 
     reviewingRaw?.let { raw ->
         ResolveReviewDialog(
+            body = raw.body,
             categories = categories,
             allTags = tags,
             onDismiss = { reviewingRaw = null },

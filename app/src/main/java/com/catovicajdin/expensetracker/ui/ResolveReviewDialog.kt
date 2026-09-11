@@ -22,12 +22,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.data.parseAmountInput
+import com.catovicajdin.expensetracker.notifications.TransactionParser
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
+import java.util.Locale
 
 /**
  * Accept step for a Needs Review row. The raw notification failed to parse, so unlike
@@ -37,13 +40,19 @@ import com.catovicajdin.expensetracker.ui.components.SectionLabel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResolveReviewDialog(
+    body: String,
     categories: List<CategoryEntity>,
     allTags: List<TagEntity>,
     onDismiss: () -> Unit,
     onDeleteTag: (TagEntity) -> Unit,
     onAccept: (categoryId: Long?, amount: Double, tagIds: Set<Long>, newTagNames: List<String>) -> Unit,
 ) {
-    var amountText by remember { mutableStateOf("") }
+    // Seeded from the notification text, but only ever a guess - a body usually carries the amount,
+    // the balance and the instalment limit, so the field stays editable and the raw text stays on
+    // screen to check it against.
+    var amountText by remember(body) {
+        mutableStateOf(TransactionParser.suggestAmount(body)?.let { "%.2f".format(Locale.US, it) }.orEmpty())
+    }
     var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
     var selectedTagIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var newTagText by remember { mutableStateOf("") }
@@ -67,6 +76,12 @@ fun ResolveReviewDialog(
                     ),
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    body,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 10.dp),
                 )
                 SectionLabel("Category", modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
                 LazyRow {

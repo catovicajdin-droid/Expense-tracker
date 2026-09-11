@@ -24,14 +24,24 @@ data class ParsedTransaction(
  * Deliberately strict (anchored, exact wording) so that any change on the bank's side falls through
  * to Failure rather than silently mis-extracting a number. Callers must keep the raw text regardless
  * of the outcome here - this function only classifies it.
+ *
+ * The description between the amount and "Raspoloživo stanje" is the one deliberately loose part:
+ * the bank puts anything there ("Kartična transakcija", "Naknada za konverziju", a merchant name),
+ * and pinning it to one wording sent every other kind of debit to needs-review. It stays
+ * non-capturing because nothing reads it - the anchors on either side are what keep the surrounding
+ * numbers unambiguous.
  */
 object TransactionParser {
 
     private val CARD_TRANSACTION_REGEX = Regex(
-        """^Evidentiran je odliv u iznosu ([\d.]+,\d{2}) (\p{L}{3})\s*-\s*Kartična transakcija\.\s*""" +
+        """^Evidentiran je odliv u iznosu ([\d.]+,\d{2}) (\p{L}{3})\s*-\s*(?:.+?)\.\s*""" +
             """Raspoloživo stanje je:\s*([\d.]+,\d{2}) (\p{L}{3}),\s*""" +
             """raspoloživo rate:\s*([\d.]+,\d{2}) (\p{L}{3})\.$"""
     )
+
+    /** The bank's own phrasing for the transaction amount, used to seed the needs-review accept form. */
+    private val AMOUNT_PHRASE_REGEX = Regex("""u iznosu ([\d.]+,\d{2})""")
+    private val ANY_AMOUNT_REGEX = Regex("""[\d.]+,\d{2}""")
 
     fun parse(title: String, body: String): ParseOutcome {
         if (title.trim() != Constants.NOTIFICATION_TITLE_TRANSACTION) {
@@ -73,6 +83,20 @@ object TransactionParser {
                 limitCurrency = limitCcy,
             )
         )
+    }
+
+    /**
+     * Best guess at the transaction amount in a body this parser couldn't handle, to prefill the
+     * needs-review accept form. Prefers the bank's "u iznosu <amount>" phrasing and only falls back
+     * to the first amount-shaped number, because a body typically carries several (the amount, the
+     * remaining balance, the remaining instalment limit) and the first one isn't always the right
+     * one. A guess either way - the caller must leave it editable.
+     */
+    fun suggestAmount(body: String): Double? {
+        val raw = AMOUNT_PHRASE_REGEX.find(body)?.groupValues?.get(1)
+            ?: ANY_AMOUNT_REGEX.find(body)?.value
+            ?: return null
+        return parseAmount(raw)?.takeIf { it > 0.0 }
     }
 
     /** "1.075,86" (bs/hr/sr formatting: '.' thousands separator, ',' decimal separator) -> 1075.86 */
