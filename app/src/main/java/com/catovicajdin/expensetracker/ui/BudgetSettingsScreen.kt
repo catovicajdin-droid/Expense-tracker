@@ -154,7 +154,15 @@ fun BudgetSettingsScreen(onBack: () -> Unit) {
                             Text("+ Add", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
                         }
                     }
-                    categories.forEach { category ->
+                    categories.forEachIndexed { index, category ->
+                        // Arrows rather than drag-and-drop: this list sits inside a scrolling
+                        // LazyColumn, where a long-press drag competes with the scroll gesture.
+                        fun move(to: Int) {
+                            val reordered = categories.map { it.id }.toMutableList()
+                            reordered.add(to, reordered.removeAt(index))
+                            scope.launch { db.categoryDao().applyOrder(reordered) }
+                        }
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().padding(20.dp, 10.dp),
@@ -167,6 +175,20 @@ fun BudgetSettingsScreen(onBack: () -> Unit) {
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f).padding(start = 12.dp),
                             )
+                            TextButton(
+                                onClick = { move(index - 1) },
+                                enabled = index > 0,
+                                contentPadding = PaddingValues(6.dp, 0.dp),
+                            ) {
+                                Text("↑", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            TextButton(
+                                onClick = { move(index + 1) },
+                                enabled = index < categories.lastIndex,
+                                contentPadding = PaddingValues(6.dp, 0.dp),
+                            ) {
+                                Text("↓", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                             TextButton(onClick = { editingCategory = category }, contentPadding = PaddingValues(8.dp, 0.dp)) {
                                 Text("Edit", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }

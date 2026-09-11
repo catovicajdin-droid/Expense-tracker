@@ -33,6 +33,19 @@ interface CategoryDao {
     @Query("UPDATE categories SET isQuickPick = :isQuickPick WHERE id = :id")
     suspend fun updateQuickPick(id: Long, isQuickPick: Boolean)
 
+    @Query("UPDATE categories SET sortOrder = :sortOrder WHERE id = :id")
+    suspend fun updateSortOrder(id: Long, sortOrder: Int)
+
+    /**
+     * Renumbers every category to its position in [ids], so the stored order always matches what
+     * the settings list shows. Rewriting all of them rather than swapping a pair also closes the
+     * gaps a deleted category leaves behind.
+     */
+    @Transaction
+    suspend fun applyOrder(ids: List<Long>) {
+        ids.forEachIndexed { index, id -> updateSortOrder(id, index) }
+    }
+
     /** Creates the category and returns its id, ordered after every existing one. */
     @Transaction
     suspend fun create(name: String, icon: String, colorHex: String): Long =
