@@ -36,7 +36,7 @@ import com.catovicajdin.expensetracker.data.entity.TransactionTagCrossRef
         TagEntity::class,
         TransactionTagCrossRef::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -59,16 +59,15 @@ abstract class AppDatabase : RoomDatabase() {
                     .addCallback(SeedDefaultCategories)
                     // No destructive fallback from here on - schema changes now require a real
                     // Migration(oldVersion, newVersion) added below, so existing data survives updates.
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { db ->
                         instance = db
-                        // Data-only palette refresh (no schema change, so no version bump needed) -
-                        // keeps existing installs' category colors in sync with CategoryColors.
+                        // The category-color refresh that used to run here is now a one-off inside
+                        // MIGRATION_4_5: re-applying it on every start would silently undo a color
+                        // the user picked themselves, which became possible once categories were
+                        // editable in-app.
                         CoroutineScope(Dispatchers.IO).launch {
-                            CategoryColors.byName.forEach { (name, color) ->
-                                db.categoryDao().updateColor(name, color)
-                            }
                             // Data-only cleanup: tags entered with a leading "#" before entry
                             // stripped it end up double-hashed everywhere they're displayed.
                             db.tagDao().stripLeadingHashFromNames()
@@ -164,6 +163,26 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v4 -> v5: categories gained an `icon` column, so a category created or renamed in-app can
+         * carry its own glyph instead of being looked up by name in CategoryIcons. Backfills the
+         * seeded categories' icons, and takes over the color sync that used to re-run on every app
+         * start (which would have overwritten user-picked colors now that they're editable).
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE categories ADD COLUMN icon TEXT NOT NULL DEFAULT '${CategoryEntity.DEFAULT_ICON}'"
+                )
+                CategoryIcons.byName.forEach { (name, icon) ->
+                    db.execSQL("UPDATE categories SET icon = ? WHERE name = ?", arrayOf(icon, name))
+                }
+                CategoryColors.byName.forEach { (name, color) ->
+                    db.execSQL("UPDATE categories SET colorHex = ? WHERE name = ?", arrayOf(color, name))
+                }
+            }
+        }
+
         private data class CategorySeed(
             val name: String,
             val isQuickPick: Boolean,
@@ -195,6 +214,7 @@ abstract class AppDatabase : RoomDatabase() {
                         put("isQuickPick", seed.isQuickPick)
                         put("sortOrder", seed.sortOrder)
                         put("colorHex", CategoryColors.byName[seed.name])
+                        put("icon", CategoryIcons.byName[seed.name] ?: CategoryEntity.DEFAULT_ICON)
                     }
                     db.insert("categories", SQLiteDatabase.CONFLICT_IGNORE, values)
                 }

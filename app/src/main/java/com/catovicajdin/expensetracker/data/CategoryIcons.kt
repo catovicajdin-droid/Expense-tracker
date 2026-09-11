@@ -1,6 +1,10 @@
 package com.catovicajdin.expensetracker.data
 
-/** An emoji glyph per default category - paired with the color and name everywhere, never standing in for them alone. */
+/**
+ * The starting glyph for each seeded category. Only the seeder and MIGRATION_4_5 read this now -
+ * every category carries its own `icon` column once created, so nothing looks an icon up by name
+ * at display time.
+ */
 object CategoryIcons {
     val byName: Map<String, String> = mapOf(
         "Phone Bill" to "📱",
@@ -18,8 +22,4 @@ object CategoryIcons {
         "Pets" to "🐾",
         "DM" to "🧴",
     )
-
-    private const val DEFAULT_ICON = "🏷️"
-
-    fun iconFor(name: String): String = byName[name] ?: DEFAULT_ICON
 }

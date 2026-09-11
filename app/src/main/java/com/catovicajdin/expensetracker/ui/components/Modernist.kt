@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.catovicajdin.expensetracker.data.CategoryIcons
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 
 /** A 1px hairline rule, for row separators inside a card - matches the design's soft `rgba(32,30,29,.09)` divider. */
@@ -65,7 +64,7 @@ fun CategoryIconBadge(category: CategoryEntity?, modifier: Modifier = Modifier, 
         modifier = modifier.size(size).background(categoryColor(category), RoundedCornerShape(size * 0.3f)),
         contentAlignment = Alignment.Center,
     ) {
-        Text(CategoryIcons.iconFor(category?.name ?: ""), fontSize = (size.value * 0.46f).sp)
+        Text(category?.icon ?: CategoryEntity.DEFAULT_ICON, fontSize = (size.value * 0.46f).sp)
     }
 }
 

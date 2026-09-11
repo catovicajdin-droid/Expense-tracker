@@ -1,6 +1,7 @@
 package com.catovicajdin.expensetracker.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,10 +11,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,8 +38,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
+import com.catovicajdin.expensetracker.data.CategoryColors
 import com.catovicajdin.expensetracker.data.MonthRange
 import com.catovicajdin.expensetracker.data.entity.CategoryBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
@@ -73,6 +81,9 @@ fun BudgetSettingsScreen(onBack: () -> Unit) {
             emptyMap()
         }
     }
+
+    // Non-null while the category editor is open; NewCategory (id 0) means "adding" rather than editing.
+    var editingCategory by remember { mutableStateOf<CategoryEntity?>(null) }
 
     val spentByCategory = remember(categoryTotals) { categoryTotals.associate { it.categoryId to it.total } }
     val budgetByCategory = remember(categoryBudgets) { categoryBudgets.associate { it.categoryId to it.amount } }
@@ -132,6 +143,40 @@ fun BudgetSettingsScreen(onBack: () -> Unit) {
             }
 
             item {
+                ModernistCard(contentPadding = PaddingValues(0.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth().padding(20.dp, 18.dp, 12.dp, 4.dp),
+                    ) {
+                        SectionLabel("Categories")
+                        TextButton(onClick = { editingCategory = NewCategory }) {
+                            Text("+ Add", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+                    categories.forEach { category ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(20.dp, 10.dp),
+                        ) {
+                            CategoryIconBadge(category, size = 30.dp)
+                            Text(
+                                category.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(start = 12.dp),
+                            )
+                            TextButton(onClick = { editingCategory = category }, contentPadding = PaddingValues(8.dp, 0.dp)) {
+                                Text("Edit", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    Box(modifier = Modifier.height(10.dp))
+                }
+            }
+
+            item {
                 if (sortedTotals.isNotEmpty()) {
                     ModernistCard {
                         SectionLabel("Where your money goes")
@@ -150,7 +195,34 @@ fun BudgetSettingsScreen(onBack: () -> Unit) {
             item { Box(modifier = Modifier.height(4.dp)) }
         }
     }
+
+    editingCategory?.let { target ->
+        val isNew = target.id == 0L
+        CategoryEditorDialog(
+            category = target,
+            existingNames = categories.filter { it.id != target.id }.map { it.name },
+            canDelete = !isNew,
+            onDismiss = { editingCategory = null },
+            onSave = { name, icon, colorHex ->
+                scope.launch {
+                    if (isNew) {
+                        db.categoryDao().create(name, icon, colorHex)
+                    } else {
+                        db.categoryDao().updateDetails(target.id, name, icon, colorHex)
+                    }
+                }
+                editingCategory = null
+            },
+            onDelete = {
+                scope.launch { db.categoryDao().deleteAndDetach(target.id) }
+                editingCategory = null
+            },
+        )
+    }
 }
+
+/** Sentinel passed to the editor for "add a category" - id 0 is what Room treats as unassigned. */
+private val NewCategory = CategoryEntity(name = "")
 
 @Composable
 private fun MonthSelector(yearMonth: String, onPrevious: () -> Unit, onNext: () -> Unit) {
@@ -260,6 +332,133 @@ private fun CategoryBudgetRow(
                 Text("Use last month's: ${formatAmount(suggestion)}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
             }
         }
+    }
+}
+
+@Composable
+private fun CategoryEditorDialog(
+    category: CategoryEntity,
+    existingNames: List<String>,
+    canDelete: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (name: String, icon: String, colorHex: String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    var name by remember { mutableStateOf(category.name) }
+    var icon by remember { mutableStateOf(category.icon) }
+    var colorHex by remember { mutableStateOf(category.colorHex) }
+    var confirmingDelete by remember { mutableStateOf(false) }
+
+    val trimmedName = name.trim()
+    val duplicate = existingNames.any { it.equals(trimmedName, ignoreCase = true) }
+    val canSave = trimmedName.isNotEmpty() && !duplicate
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (canDelete) "Edit category" else "New category") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Preview of exactly what the badge will look like everywhere else in the app.
+                    CategoryIconBadge(
+                        category.copy(name = trimmedName, icon = icon.ifBlank { CategoryEntity.DEFAULT_ICON }, colorHex = colorHex),
+                        size = 44.dp,
+                    )
+                    TextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        placeholder = { Text("Name") },
+                        singleLine = true,
+                        colors = amountFieldColors(),
+                        shape = fieldShape,
+                        modifier = Modifier.weight(1f).padding(start = 12.dp),
+                    )
+                }
+                if (duplicate) {
+                    Text(
+                        "A category called \"$trimmedName\" already exists.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+
+                SectionLabel("Icon", modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+                TextField(
+                    value = icon,
+                    onValueChange = { input ->
+                        // One glyph only - an emoji can be several chars, so cap by code points and
+                        // keep the last one typed rather than rejecting the edit outright.
+                        icon = input.takeIf { it.codePointCount(0, it.length) <= 1 }
+                            ?: input.substring(input.offsetByCodePoints(0, input.codePointCount(0, input.length) - 1))
+                    },
+                    placeholder = { Text(CategoryEntity.DEFAULT_ICON) },
+                    singleLine = true,
+                    colors = amountFieldColors(),
+                    shape = fieldShape,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                SectionLabel("Color", modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+                LazyRow {
+                    items(CategoryColors.byName.values.distinct()) { swatch ->
+                        val selected = swatch.equals(colorHex, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .size(36.dp)
+                                .background(
+                                    runCatching { Color(android.graphics.Color.parseColor(swatch)) }.getOrDefault(Color.Gray),
+                                    RoundedCornerShape(10.dp),
+                                )
+                                .clickable { colorHex = swatch },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (selected) {
+                                Text("✓", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
+                }
+
+                if (canDelete) {
+                    TextButton(
+                        onClick = { confirmingDelete = true },
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.padding(top = 16.dp),
+                    ) {
+                        Text("Delete category", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = canSave,
+                onClick = { onSave(trimmedName, icon.ifBlank { CategoryEntity.DEFAULT_ICON }, colorHex) },
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+
+    if (confirmingDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = { Text("Delete \"${category.name}\"?") },
+            text = {
+                Text(
+                    "Transactions in this category are kept, but become uncategorized. Its budgets " +
+                        "are removed. This can't be undone.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingDelete = false
+                    onDelete()
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("Cancel") } },
+        )
     }
 }
 
