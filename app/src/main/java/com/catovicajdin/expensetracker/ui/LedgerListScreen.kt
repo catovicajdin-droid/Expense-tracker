@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,7 @@ import java.util.Locale
 @Composable
 fun LedgerListScreen(
     filter: TransactionFilter,
+    onFilterChange: (TransactionFilter) -> Unit,
     onBack: () -> Unit,
     onOpenFilters: () -> Unit,
     onOpenDetail: (Long) -> Unit,
@@ -55,6 +57,21 @@ fun LedgerListScreen(
 
     val categories by db.categoryDao().all().collectAsState(initial = emptyList())
     val tags by db.tagDao().all().collectAsState(initial = emptyList())
+
+    // A filter can outlive what it points at - open a category's ledger from the budget grid, then
+    // delete that category, and the id lingers here, matching nothing and explaining nothing. Drop
+    // ids that no longer exist so the filter heals itself. Guarded on a loaded list, since both
+    // flows start empty and would otherwise wipe the filter on the first frame.
+    LaunchedEffect(categories, tags, filter) {
+        if (categories.isEmpty() && tags.isEmpty()) return@LaunchedEffect
+        val liveCategoryIds = categories.mapTo(mutableSetOf()) { it.id }
+        val liveTagIds = tags.mapTo(mutableSetOf()) { it.id }
+        val prunedCategories = if (categories.isEmpty()) filter.categoryIds else filter.categoryIds intersect liveCategoryIds
+        val prunedTags = if (tags.isEmpty()) filter.tagIds else filter.tagIds intersect liveTagIds
+        if (prunedCategories != filter.categoryIds || prunedTags != filter.tagIds) {
+            onFilterChange(filter.copy(categoryIds = prunedCategories, tagIds = prunedTags))
+        }
+    }
     val tagNamesByTransaction by db.tagDao().allTransactionTagNames().collectAsState(initial = emptyList())
     val rows by db.transactionDao().filteredWithSource(
         categoryIds = filter.categoryIds.toList(),
@@ -109,6 +126,24 @@ fun LedgerListScreen(
         }
 
         ModernistCard(modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) {
+            if (rows.isEmpty()) {
+                val filtered = filter != TransactionFilter()
+                Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                    Text(
+                        if (filtered) "No transactions match these filters." else "No transactions yet.",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    if (filtered) {
+                        TextButton(
+                            onClick = { onFilterChange(TransactionFilter()) },
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) {
+                            Text("Clear filters", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+                }
+            }
             LazyColumn {
                 items(rows) { row ->
                     LedgerRow(
@@ -209,15 +244,18 @@ private fun filterSummary(
     tags: List<com.catovicajdin.expensetracker.data.entity.TagEntity>,
 ): String {
     val parts = mutableListOf<String>()
-    parts += if (filter.categoryIds.isEmpty()) {
-        "All categories"
-    } else {
-        categories.filter { filter.categoryIds.contains(it.id) }.joinToString(", ") { it.name }
+    // Names are resolved against the live lists, so a filter naming something since deleted would
+    // otherwise join to an empty string and leave the bar blank - never show nothing.
+    val categoryNames = categories.filter { filter.categoryIds.contains(it.id) }.map { it.name }
+    parts += when {
+        filter.categoryIds.isEmpty() -> "All categories"
+        categoryNames.isEmpty() -> "Deleted category"
+        else -> categoryNames.joinToString(", ")
     }
     if (filter.tagIds.isNotEmpty()) {
-        val names = tags.filter { filter.tagIds.contains(it.id) }.joinToString(", ") { it.name }
+        val names = tags.filter { filter.tagIds.contains(it.id) }.map { it.name }
         val mode = if (filter.tagMatchMode == TagMatchMode.ALL) "all" else "any"
-        parts += "#$names ($mode)"
+        parts += if (names.isEmpty()) "deleted tag" else "#${names.joinToString(", ")} ($mode)"
     }
     if (filter.fromMillis != null || filter.toMillis != null) parts += "date range"
     if (filter.minAmount != null || filter.maxAmount != null) parts += "amount range"

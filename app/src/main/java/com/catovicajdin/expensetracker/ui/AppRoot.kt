@@ -39,6 +39,7 @@ fun AppRoot(
                 )
                 is Screen.Ledger -> LedgerListScreen(
                     filter = filter,
+                    onFilterChange = { filter = it },
                     onBack = { onNavigate(Screen.Home) },
                     onOpenFilters = { onNavigate(Screen.Filters) },
                     onOpenDetail = { id -> onNavigate(Screen.Detail(id)) },
