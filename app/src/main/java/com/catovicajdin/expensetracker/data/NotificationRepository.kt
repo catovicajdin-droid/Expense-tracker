@@ -53,13 +53,26 @@ class NotificationRepository(private val db: AppDatabase) {
         return null
     }
 
-    /** Android occasionally redelivers/updates the same notification; catch it via a tight time+content window. */
+    /**
+     * The same notification reaches the listener more than once - Android redelivers, and the bank
+     * re-posts its whole set with fresh postTimes, which is what produced batches of duplicates
+     * hours apart from one another.
+     *
+     * So identity here is the notification's text, not when it arrived. That's sound because the
+     * body carries the resulting account balance: two genuinely separate transactions would have to
+     * share an amount *and* leave the balance at exactly the same figure to collide. The window
+     * only bounds how far back to look, generously enough to cover a re-post of anything still
+     * sitting in the shade.
+     */
     private suspend fun isDuplicate(packageName: String, title: String, body: String, postedAt: Long): Boolean {
-        val windowMillis = 60_000L
-        val recent = db.rawNotificationDao().findRecentForDedup(
-            packageName, postedAt - windowMillis, postedAt + windowMillis,
+        val windowMillis = 7L * 24 * 60 * 60 * 1000
+        return db.rawNotificationDao().hasMatching(
+            packageName = packageName,
+            title = title,
+            body = body,
+            fromMillis = postedAt - windowMillis,
+            toMillis = postedAt + windowMillis,
         )
-        return recent.any { it.title == title && it.body == body }
     }
 
     /**
