@@ -45,31 +45,46 @@ object CategorizeNotifier {
             defaults.filter { it.id != suggested?.id }.forEach { add(it) }
         }.take(3)
 
+        // Identical apart from the title, so the quick-category buttons survive onto the lock
+        // screen exactly as before - only the amount is withheld there.
+        fun build(titleText: String): NotificationCompat.Builder {
+            val builder = NotificationCompat.Builder(context, Constants.CHANNEL_ID_CATEGORIZE)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(titleText)
+                .setContentText(context.getString(R.string.categorize_notification_text))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+
+            buttons.forEach { category ->
+                val label = if (category.id == suggested?.id) "★ ${category.name}" else category.name
+                builder.addAction(0, label, categoryActionIntent(context, transactionId, category.id))
+            }
+            // A 4th action button (e.g. "More") gets silently dropped on many devices, which cap visible
+            // notification actions at 3. Tapping the notification body itself isn't subject to that limit,
+            // so that's the "open full category list" affordance instead.
+            builder.setContentIntent(morePendingIntent(context, transactionId))
+            return builder
+        }
+
+        val genericTitle = context.getString(R.string.categorize_notification_title)
         // The amount as the title: several of these stack up in the shade over a day, and a row of
         // identical "New transaction" headings gives nothing to tell them apart by. Falls back to
-        // the generic title if the row couldn't be loaded. The bank's own notification already put
-        // this amount on the lock screen, so showing it here reveals nothing new.
-        val title = transaction
+        // the generic title if the row couldn't be loaded.
+        val amountTitle = transaction
             ?.let { "${formatAmount(it.amount)} ${it.currency}" }
-            ?: context.getString(R.string.categorize_notification_title)
+            ?: genericTitle
 
-        val builder = NotificationCompat.Builder(context, Constants.CHANNEL_ID_CATEGORIZE)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(context.getString(R.string.categorize_notification_text))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
+        // PRIVATE hides this notification behind the public version on a secure lock screen, so a
+        // glance at a locked phone shows only "New transaction" while the amount waits in the
+        // unlocked shade. Deliberately not set on the channel: channel settings are fixed at
+        // creation and belong to the user afterwards, so it would do nothing on installs that
+        // already have this channel.
+        val notification = build(amountTitle)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(build(genericTitle).build())
+            .build()
 
-        buttons.forEach { category ->
-            val label = if (category.id == suggested?.id) "★ ${category.name}" else category.name
-            builder.addAction(0, label, categoryActionIntent(context, transactionId, category.id))
-        }
-        // A 4th action button (e.g. "More") gets silently dropped on many devices, which cap visible
-        // notification actions at 3. Tapping the notification body itself isn't subject to that limit,
-        // so that's the "open full category list" affordance instead.
-        builder.setContentIntent(morePendingIntent(context, transactionId))
-
-        context.getSystemService(NotificationManager::class.java).notify(transactionId.toInt(), builder.build())
+        context.getSystemService(NotificationManager::class.java).notify(transactionId.toInt(), notification)
     }
 
     private fun categoryActionIntent(context: Context, transactionId: Long, categoryId: Long): PendingIntent {
