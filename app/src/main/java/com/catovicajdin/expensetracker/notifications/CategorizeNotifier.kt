@@ -11,6 +11,7 @@ import com.catovicajdin.expensetracker.MainActivity
 import com.catovicajdin.expensetracker.R
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
+import com.catovicajdin.expensetracker.ui.components.formatAmount
 
 /**
  * Builds the per-transaction notification: one-tap quick-category buttons, plus a "More" fallback.
@@ -44,9 +45,17 @@ object CategorizeNotifier {
             defaults.filter { it.id != suggested?.id }.forEach { add(it) }
         }.take(3)
 
+        // The amount as the title: several of these stack up in the shade over a day, and a row of
+        // identical "New transaction" headings gives nothing to tell them apart by. Falls back to
+        // the generic title if the row couldn't be loaded. The bank's own notification already put
+        // this amount on the lock screen, so showing it here reveals nothing new.
+        val title = transaction
+            ?.let { "${formatAmount(it.amount)} ${it.currency}" }
+            ?: context.getString(R.string.categorize_notification_title)
+
         val builder = NotificationCompat.Builder(context, Constants.CHANNEL_ID_CATEGORIZE)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.categorize_notification_title))
+            .setContentTitle(title)
             .setContentText(context.getString(R.string.categorize_notification_text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
