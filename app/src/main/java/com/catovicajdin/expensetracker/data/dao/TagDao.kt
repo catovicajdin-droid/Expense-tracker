@@ -58,6 +58,22 @@ interface TagDao {
     @Query("DELETE FROM transaction_tags WHERE transactionId = :transactionId")
     suspend fun clearTagsForTransaction(transactionId: Long)
 
+    /**
+     * Bulk tagging adds and removes rather than replacing: every transaction in a selection carries
+     * its own tags, and setting them all to one list would quietly discard whatever else was there.
+     * OR IGNORE so re-tagging something already tagged is a no-op rather than a constraint failure.
+     */
+    @Query(
+        """
+        INSERT OR IGNORE INTO transaction_tags (transactionId, tagId)
+        SELECT id, :tagId FROM transactions WHERE id IN (:transactionIds)
+        """
+    )
+    suspend fun addTagToAll(transactionIds: List<Long>, tagId: Long)
+
+    @Query("DELETE FROM transaction_tags WHERE tagId = :tagId AND transactionId IN (:transactionIds)")
+    suspend fun removeTagFromAll(transactionIds: List<Long>, tagId: Long)
+
     @Query(
         """
         SELECT t.id as tagId, t.name as tagName, SUM(tx.amount) as total, COUNT(tx.id) as count

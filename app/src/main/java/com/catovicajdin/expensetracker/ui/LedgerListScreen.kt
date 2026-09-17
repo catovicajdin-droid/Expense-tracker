@@ -1,6 +1,9 @@
 package com.catovicajdin.expensetracker.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,8 +12,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -27,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -92,6 +101,24 @@ fun LedgerListScreen(
     val filterSummaryText = remember(filter, categories, tags) { filterSummary(filter, categories, tags) }
     val sum = remember(rows) { rows.sumOf { it.transaction.amount } }
 
+    // Long-press a row to start selecting; an empty set means selection mode is off.
+    var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var showBulkCategory by remember { mutableStateOf(false) }
+    var showBulkTags by remember { mutableStateOf(false) }
+
+    // Selecting rows and then narrowing the filter would otherwise leave invisible rows selected and
+    // silently included in the next bulk edit. Keep the selection to what's actually on screen.
+    LaunchedEffect(rows) {
+        val visible = rows.mapTo(mutableSetOf()) { it.transaction.id }
+        if (selectedIds.any { it !in visible }) selectedIds = selectedIds intersect visible
+    }
+
+    fun applyBulk(work: suspend (List<Long>) -> Unit) {
+        val target = selectedIds.toList()
+        scope.launch { work(target) }
+        selectedIds = emptySet()
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(14.dp, 16.dp, 14.dp, 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -104,24 +131,65 @@ fun LedgerListScreen(
         }
 
         ModernistCard(contentPadding = PaddingValues(20.dp, 14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(
-                    onClick = onOpenFilters,
-                    shape = MaterialTheme.shapes.small,
-                    colors = ButtonDefaults.textButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                ) { Text("Filters", style = MaterialTheme.typography.labelLarge) }
-                Text(
-                    filterSummaryText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(start = 12.dp),
-                )
-                Text(formatAmount(sum), style = MaterialTheme.typography.titleSmall)
+            if (selectedIds.isEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick = onOpenFilters,
+                        shape = MaterialTheme.shapes.small,
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    ) { Text("Filters", style = MaterialTheme.typography.labelLarge) }
+                    Text(
+                        filterSummaryText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).padding(start = 12.dp),
+                    )
+                    Text(formatAmount(sum), style = MaterialTheme.typography.titleSmall)
+                }
+            } else {
+                val selectedTotal = rows.filter { selectedIds.contains(it.transaction.id) }
+                    .sumOf { it.transaction.amount }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    TextButton(onClick = { selectedIds = emptySet() }, contentPadding = PaddingValues(0.dp)) {
+                        Text("✕", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(
+                        "${selectedIds.size} selected · ${formatAmount(selectedTotal)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f).padding(start = 12.dp),
+                    )
+                    TextButton(
+                        onClick = { selectedIds = rows.mapTo(mutableSetOf()) { it.transaction.id } },
+                        contentPadding = PaddingValues(6.dp, 0.dp),
+                    ) {
+                        Text("All", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = { showBulkCategory = true },
+                        shape = MaterialTheme.shapes.small,
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Category", style = MaterialTheme.typography.labelLarge) }
+                    TextButton(
+                        onClick = { showBulkTags = true },
+                        shape = MaterialTheme.shapes.small,
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Tags", style = MaterialTheme.typography.labelLarge) }
+                }
             }
         }
 
@@ -146,16 +214,25 @@ fun LedgerListScreen(
             }
             LazyColumn {
                 items(rows) { row ->
+                    val id = row.transaction.id
+                    fun toggle() {
+                        selectedIds = if (selectedIds.contains(id)) selectedIds - id else selectedIds + id
+                    }
                     LedgerRow(
                         row = row,
                         category = categories.find { it.id == row.transaction.categoryId },
                         categories = categories,
-                        tagNames = tagsByTransaction[row.transaction.id].orEmpty(),
+                        tagNames = tagsByTransaction[id].orEmpty(),
                         dateFormat = dateFormat,
-                        onClick = { onOpenDetail(row.transaction.id) },
+                        selected = selectedIds.contains(id),
+                        selecting = selectedIds.isNotEmpty(),
+                        // While selecting, a tap picks rather than navigates - otherwise it's far too
+                        // easy to lose a selection by opening a transaction by accident.
+                        onClick = { if (selectedIds.isEmpty()) onOpenDetail(id) else toggle() },
+                        onLongClick = ::toggle,
                         onReassign = { categoryId ->
                             scope.launch {
-                                db.transactionDao().assignCategory(row.transaction.id, categoryId)
+                                db.transactionDao().assignCategory(id, categoryId)
                                 categoryId?.let { BudgetAlerts.checkCategory(context, it) }
                             }
                         },
@@ -164,8 +241,114 @@ fun LedgerListScreen(
             }
         }
     }
+
+    if (showBulkCategory) {
+        val count = selectedIds.size
+        AlertDialog(
+            onDismissRequest = { showBulkCategory = false },
+            title = { Text("Category for $count transaction${if (count == 1) "" else "s"}") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    CategoryOption(
+                        name = "Uncategorized",
+                        category = null,
+                        selected = false,
+                        onClick = {
+                            applyBulk { ids -> db.transactionDao().assignCategoryToAll(ids, null) }
+                            showBulkCategory = false
+                        },
+                    )
+                    categories.forEach { category ->
+                        CategoryOption(
+                            name = category.name,
+                            category = category,
+                            selected = false,
+                            onClick = {
+                                applyBulk { ids ->
+                                    db.transactionDao().assignCategoryToAll(ids, category.id)
+                                    BudgetAlerts.checkCategory(context, category.id)
+                                }
+                                showBulkCategory = false
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showBulkCategory = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showBulkTags) {
+        BulkTagDialog(
+            count = selectedIds.size,
+            allTags = tags,
+            onDismiss = { showBulkTags = false },
+            onApply = { tagIds, add ->
+                applyBulk { ids ->
+                    tagIds.forEach { tagId ->
+                        if (add) db.tagDao().addTagToAll(ids, tagId) else db.tagDao().removeTagFromAll(ids, tagId)
+                    }
+                }
+                showBulkTags = false
+            },
+        )
+    }
 }
 
+/**
+ * Add or remove, never replace: each transaction in the selection has its own tags, so applying one
+ * list to all of them would silently drop the others.
+ */
+@Composable
+private fun BulkTagDialog(
+    count: Int,
+    allTags: List<com.catovicajdin.expensetracker.data.entity.TagEntity>,
+    onDismiss: () -> Unit,
+    onApply: (tagIds: Set<Long>, add: Boolean) -> Unit,
+) {
+    var picked by remember { mutableStateOf<Set<Long>>(emptySet()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Tags for $count transaction${if (count == 1) "" else "s"}") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                if (allTags.isEmpty()) {
+                    Text("No tags yet - add one from a transaction first.", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    allTags.forEach { tag ->
+                        val isPicked = picked.contains(tag.id)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { picked = if (isPicked) picked - tag.id else picked + tag.id }
+                                .padding(vertical = 10.dp),
+                        ) {
+                            Text(if (isPicked) "☑" else "☐", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "#${tag.name}",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(start = 12.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = picked.isNotEmpty(), onClick = { onApply(picked, true) }) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(enabled = picked.isNotEmpty(), onClick = { onApply(picked, false) }) {
+                Text("Remove", color = MaterialTheme.colorScheme.secondary)
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LedgerRow(
     row: TransactionRow,
@@ -173,7 +356,10 @@ private fun LedgerRow(
     categories: List<com.catovicajdin.expensetracker.data.entity.CategoryEntity>,
     tagNames: List<String>,
     dateFormat: SimpleDateFormat,
+    selected: Boolean,
+    selecting: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onReassign: (Long?) -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -183,14 +369,31 @@ private fun LedgerRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
                 .padding(20.dp, 14.dp),
         ) {
             // Tapping the badge reassigns the category in place; the badge's own clickable consumes
-            // the tap so it never falls through to the row's open-detail click.
+            // the tap so it never falls through to the row's open-detail click. Suppressed while
+            // selecting, where every tap on the row should mean "pick this one".
             Box {
-                Box(modifier = Modifier.clickable { menuExpanded = true }) {
-                    CategoryIconBadge(category, size = 34.dp)
+                Box(modifier = Modifier.clickable(enabled = !selecting) { menuExpanded = true }) {
+                    // Keeps the category badge underneath so the row stays recognisable, with a
+                    // check laid over it rather than replacing it (an empty badge would read as
+                    // "uncategorized", which is a thing a row can actually be).
+                    Box(contentAlignment = Alignment.Center) {
+                        CategoryIconBadge(category, size = 34.dp)
+                        if (selected) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("✓", color = MaterialTheme.colorScheme.surface, style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                     DropdownMenuItem(

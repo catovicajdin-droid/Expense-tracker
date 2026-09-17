@@ -83,6 +83,10 @@ interface TransactionDao {
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE id = :id")
     suspend fun assignCategory(id: Long, categoryId: Long?)
 
+    /** Recategorizes a whole selection in one statement, so the list redraws once rather than per row. */
+    @Query("UPDATE transactions SET categoryId = :categoryId WHERE id IN (:ids)")
+    suspend fun assignCategoryToAll(ids: List<Long>, categoryId: Long?)
+
     /** Leaves the originating raw_notifications row intact - only the transaction itself is removed. */
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun delete(id: Long)
