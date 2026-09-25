@@ -57,6 +57,7 @@ fun TransactionDetailScreen(
     var row by remember { mutableStateOf<TransactionRow?>(null) }
     var editingTagIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var showEdit by remember { mutableStateOf(false) }
+    var showSplit by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     LaunchedEffect(transactionId) { row = db.transactionDao().byIdWithSource(transactionId) }
 
@@ -173,6 +174,13 @@ fun TransactionDetailScreen(
                 modifier = Modifier.weight(1f),
             ) { Text("Edit") }
             Button(
+                onClick = { showSplit = true },
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
+                modifier = Modifier.weight(1f),
+            ) { Text("Split") }
+            Button(
                 onClick = { showDeleteConfirm = true },
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.secondary),
@@ -203,6 +211,41 @@ fun TransactionDetailScreen(
                         categoryId?.let { BudgetAlerts.checkCategory(context, it) }
                     }
                     showEdit = false
+                },
+            )
+        }
+    }
+
+    if (showSplit) {
+        val current = transaction
+        if (current != null) {
+            SplitTransactionDialog(
+                total = current.amount,
+                currency = current.currency,
+                categories = categories,
+                onDismiss = { showSplit = false },
+                onSplit = { splitAmount, splitCategoryId, remainderCategoryId ->
+                    scope.launch {
+                        val newId = db.transactionDao().splitOff(
+                            id = transactionId,
+                            splitAmount = splitAmount,
+                            splitCategoryId = splitCategoryId,
+                            remainderCategoryId = remainderCategoryId,
+                        )
+                        if (newId != null) {
+                            // The new half came out of the same withdrawal, so it inherits the tags
+                            // rather than starting bare - easier to remove one than to retype them.
+                            val inherited = db.tagDao().tagIdsForTransaction(transactionId)
+                            if (inherited.isNotEmpty()) {
+                                db.tagDao().replaceTagsForTransaction(newId, inherited.toSet())
+                            }
+                            listOfNotNull(splitCategoryId, remainderCategoryId).distinct().forEach {
+                                BudgetAlerts.checkCategory(context, it)
+                            }
+                            row = db.transactionDao().byIdWithSource(transactionId)
+                        }
+                    }
+                    showSplit = false
                 },
             )
         }

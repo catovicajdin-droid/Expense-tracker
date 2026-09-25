@@ -3,6 +3,7 @@ package com.catovicajdin.expensetracker.data.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import com.catovicajdin.expensetracker.data.CategoryTotal
 import com.catovicajdin.expensetracker.data.TransactionRow
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
@@ -86,6 +87,36 @@ interface TransactionDao {
     /** Recategorizes a whole selection in one statement, so the list redraws once rather than per row. */
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE id IN (:ids)")
     suspend fun assignCategoryToAll(ids: List<Long>, categoryId: Long?)
+
+    @Query("UPDATE transactions SET amount = :amount, categoryId = :categoryId WHERE id = :id")
+    suspend fun updateAmountAndCategory(id: Long, amount: Double, categoryId: Long?)
+
+    /**
+     * Carves [splitAmount] off a transaction into a second one - a cash withdrawal where only part
+     * of it went on the thing you actually bought, the rest still being cash in hand.
+     *
+     * The new row keeps the original's rawNotificationId, date and currency, so both halves still
+     * trace back to the one bank notification and the ledger's total is unchanged: the original is
+     * reduced by exactly what the new one takes. @Transaction so a failure can't leave money
+     * duplicated or missing between the two writes.
+     *
+     * Returns the new transaction's id, or null if the amount doesn't leave something on both
+     * sides - splitting off all of it, or none, is not a split.
+     */
+    @Transaction
+    suspend fun splitOff(
+        id: Long,
+        splitAmount: Double,
+        splitCategoryId: Long?,
+        remainderCategoryId: Long?,
+    ): Long? {
+        val original = byId(id) ?: return null
+        if (splitAmount <= 0.0 || splitAmount >= original.amount) return null
+        updateAmountAndCategory(id, original.amount - splitAmount, remainderCategoryId)
+        return insert(
+            original.copy(id = 0, amount = splitAmount, categoryId = splitCategoryId),
+        )
+    }
 
     /** Leaves the originating raw_notifications row intact - only the transaction itself is removed. */
     @Query("DELETE FROM transactions WHERE id = :id")
