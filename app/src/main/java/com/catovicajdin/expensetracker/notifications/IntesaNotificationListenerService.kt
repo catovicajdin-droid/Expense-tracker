@@ -25,6 +25,11 @@ class IntesaNotificationListenerService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName != Constants.INTESA_PACKAGE_NAME) return
 
+        // An app posting several notifications also posts a summary standing for the group, and it
+        // usually repeats one of their bodies - which would read here as a second transaction
+        // arriving milliseconds after the real one.
+        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+
         val extras = sbn.notification.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()

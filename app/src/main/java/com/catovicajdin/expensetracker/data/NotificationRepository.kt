@@ -5,8 +5,24 @@ import com.catovicajdin.expensetracker.data.entity.RawNotificationEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import com.catovicajdin.expensetracker.notifications.ParseOutcome
 import com.catovicajdin.expensetracker.notifications.TransactionParser
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class NotificationRepository(private val db: AppDatabase) {
+
+    companion object {
+        /**
+         * Ingestion is check-then-act - look for a duplicate, then insert - and the listener runs
+         * one coroutine per delivery on the multi-threaded IO dispatcher. Two deliveries of the
+         * same notification arriving together (an update, or the group summary that accompanies a
+         * batch) would both read before either wrote, both conclude they were new, and both insert.
+         * Serializing ingestion closes that window; no dedup rule can, since the rule is only ever
+         * consulted before the write.
+         *
+         * Process-wide rather than per-instance because callers construct their own repositories.
+         */
+        private val ingestLock = Mutex()
+    }
 
     /**
      * Stores the raw notification unconditionally, then attempts to parse it. A parse failure never
@@ -14,7 +30,10 @@ class NotificationRepository(private val db: AppDatabase) {
      * Returns the created transaction id, or null if this notification wasn't a parsed transaction
      * (needs review, ignored, or a duplicate delivery).
      */
-    suspend fun ingest(packageName: String, title: String, body: String, postedAt: Long): Long? {
+    suspend fun ingest(packageName: String, title: String, body: String, postedAt: Long): Long? =
+        ingestLock.withLock { ingestLocked(packageName, title, body, postedAt) }
+
+    private suspend fun ingestLocked(packageName: String, title: String, body: String, postedAt: Long): Long? {
         if (isDuplicate(packageName, title, body, postedAt)) return null
 
         val outcome = TransactionParser.parse(title, body)
