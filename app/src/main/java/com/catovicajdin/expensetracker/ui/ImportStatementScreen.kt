@@ -63,7 +63,7 @@ private sealed interface Stage {
     data class NeedsPassword(val uri: Uri) : Stage
     data class Failed(val detail: String) : Stage
     data class Review(val plan: ImportPlan) : Stage
-    data class Done(val imported: Int) : Stage
+    data class Done(val imported: Int, val sourceKey: String) : Stage
 }
 
 /**
@@ -117,7 +117,7 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
     fun commit(plan: ImportPlan) {
         scope.launch {
             val imported = StatementImport.commit(context, plan, choices, skipDuplicates)
-            stage = Stage.Done(imported)
+            stage = Stage.Done(imported, plan.sourceKey)
         }
     }
 
@@ -180,6 +180,13 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(top = 10.dp),
                 )
+                Text(
+                    "If it does not look right, undo it here, or later from Imports on the budget " +
+                        "settings screen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
                 Button(
                     onClick = onImported,
                     shape = MaterialTheme.shapes.medium,
@@ -189,6 +196,16 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
                     ),
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                 ) { Text("Done") }
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            db.rawNotificationDao().deleteImport(current.sourceKey)
+                            stage = Stage.Idle
+                        }
+                    },
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.padding(top = 6.dp),
+                ) { Text("Undo this import", color = MaterialTheme.colorScheme.secondary) }
             }
 
             is Stage.NeedsPassword -> PasswordPrompt(

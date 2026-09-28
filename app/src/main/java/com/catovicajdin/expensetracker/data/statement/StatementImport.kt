@@ -113,7 +113,9 @@ object StatementImport {
 
         val period = statement.rows.groupingBy { YearMonth.from(it.orderDate) }.eachCount()
             .maxByOrNull { it.value }?.key ?: YearMonth.from(statement.firstDate)
-        val sourceKey = "statement:$period"
+        // Each run gets its own key so it can be undone on its own; importing the same month twice
+        // must not produce one batch that can only be removed wholesale.
+        val sourceKey = "statement:$period:${System.currentTimeMillis()}"
 
         return ImportPlan(
             statement = statement,
@@ -121,7 +123,7 @@ object StatementImport {
             nonExpenseCount = statement.rows.size - expenses.size,
             duplicateCount = rows.count { it.looksAlreadyPresent },
             sourceKey = sourceKey,
-            alreadyImportedFromPeriod = db.rawNotificationDao().countForPackage(sourceKey),
+            alreadyImportedFromPeriod = db.rawNotificationDao().countForPackagePrefix("statement:$period"),
             currency = db.transactionDao().mostRecentCurrency() ?: "BAM",
         )
     }

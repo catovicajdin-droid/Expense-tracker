@@ -60,6 +60,7 @@ fun BudgetSettingsScreen(
     onOpenCategories: () -> Unit,
     onOpenDuplicates: () -> Unit,
     onOpenImport: () -> Unit,
+    onOpenImportHistory: () -> Unit,
 ) {
     val context = LocalContext.current
     val db = AppDatabase.get(context)
@@ -89,6 +90,7 @@ fun BudgetSettingsScreen(
     val sortedTotals = remember(categoryTotals) { categoryTotals.sortedByDescending { it.total } }
     val monthsWithData by db.transactionDao().monthsWithData().collectAsState(initial = emptyList())
     val duplicateGroups by db.transactionDao().duplicateGroups().collectAsState(initial = emptyList())
+    val statementImports by db.rawNotificationDao().statementImports().collectAsState(initial = emptyList())
     // The month being viewed is always offered, even before anything is recorded in it, so the strip
     // never leaves the selection unmarked.
     val monthsToShow = remember(monthsWithData, yearMonth) {
@@ -227,6 +229,28 @@ fun BudgetSettingsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+            }
+
+            item {
+                if (statementImports.isNotEmpty()) {
+                    ModernistCard(contentPadding = PaddingValues(0.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenImportHistory)
+                                .padding(20.dp, 18.dp),
+                        ) {
+                            Text("Imports", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "${statementImports.size} →",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }

@@ -65,11 +65,15 @@ fun AppRoot(
                     onOpenCategories = { onNavigate(Screen.Categories) },
                     onOpenDuplicates = { onNavigate(Screen.Duplicates) },
                     onOpenImport = { onNavigate(Screen.ImportStatement) },
+                    onOpenImportHistory = { onNavigate(Screen.ImportHistory) },
                 )
                 is Screen.Categories -> CategoriesScreen(
                     onBack = { onNavigate(Screen.BudgetSettings) },
                 )
                 is Screen.Duplicates -> DuplicatesScreen(
+                    onBack = { onNavigate(Screen.BudgetSettings) },
+                )
+                is Screen.ImportHistory -> ImportHistoryScreen(
                     onBack = { onNavigate(Screen.BudgetSettings) },
                 )
                 is Screen.ImportStatement -> ImportStatementScreen(
