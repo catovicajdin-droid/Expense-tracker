@@ -40,7 +40,6 @@ data class MerchantGroup(
     val suggestedCategoryId: Long?,
 ) {
     val total: Double get() = rows.sumOf { it.amount }
-    val newCount: Int get() = rows.count { !it.looksAlreadyPresent }
 }
 
 data class ImportPlan(
@@ -57,15 +56,19 @@ data class ImportPlan(
     val transactedEarlier: Int,
 ) {
     val expenseCount: Int get() = groups.sumOf { it.rows.size }
-    fun importableCount(skipDuplicates: Boolean): Int =
-        if (skipDuplicates) groups.sumOf { it.newCount } else expenseCount
 }
 
-/** What the user decided for one merchant group. Nothing chosen imports as uncategorized, not blocked. */
+/**
+ * What the user decided for a merchant or for particular rows of it. Nothing chosen imports as
+ * uncategorized rather than blocking the import.
+ *
+ * Tags are held as ids, never as names still waiting to be created: a tag typed here is created at
+ * once, so it is immediately offered to every other merchant in the same review and shows as
+ * selected where it was typed.
+ */
 data class GroupChoice(
     val categoryId: Long? = null,
     val tagIds: Set<Long> = emptySet(),
-    val newTagNames: List<String> = emptyList(),
 )
 
 object StatementImport {
@@ -164,17 +167,19 @@ object StatementImport {
         plan: ImportPlan,
         choices: Map<String, GroupChoice>,
         rowChoices: Map<Int, GroupChoice>,
+        droppedRowIds: Set<Int>,
         skipDuplicates: Boolean,
     ): Int {
         val db = AppDatabase.get(context)
         var imported = 0
         for (group in plan.groups) {
             for (row in group.rows) {
+                if (row.id in droppedRowIds) continue
                 if (skipDuplicates && row.looksAlreadyPresent) continue
                 // A row set on its own wins over what the merchant was given; otherwise it follows
                 // the group, which is the point of grouping in the first place.
                 val choice = rowChoices[row.id] ?: choices[group.key] ?: GroupChoice()
-                val tagIds = choice.tagIds + choice.newTagNames.map { db.tagDao().getOrCreate(it) }
+                val tagIds = choice.tagIds
                 val rawId = db.rawNotificationDao().insert(
                     RawNotificationEntity(
                         packageName = plan.sourceKey,

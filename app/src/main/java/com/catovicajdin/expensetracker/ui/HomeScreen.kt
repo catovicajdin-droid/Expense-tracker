@@ -71,6 +71,7 @@ fun HomeScreen(
     val monthRows by db.transactionDao().filteredWithSource(
         categoryIds = emptyList(),
         categoryCount = 0,
+        includeUncategorized = false,
         fromMillis = thisRange.first,
         toMillis = thisRange.second,
         minAmount = null,

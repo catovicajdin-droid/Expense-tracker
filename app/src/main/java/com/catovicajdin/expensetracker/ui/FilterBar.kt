@@ -64,6 +64,15 @@ fun FilterBar(
             ModernistCard {
                 SectionLabel("Categories")
                 LazyRow(modifier = Modifier.padding(top = 12.dp)) {
+                    item {
+                        // Anything the app captured but nobody has filed yet - the list of what is
+                        // left to do, which no category id can express.
+                        FilterChipBox(
+                            label = "Uncategorized",
+                            selected = filter.includeUncategorized,
+                            onToggle = { onFilterChange(filter.copy(includeUncategorized = !filter.includeUncategorized)) },
+                        )
+                    }
                     items(categories) { category ->
                         CategoryFilterChip(
                             category = category,
@@ -192,6 +201,11 @@ private fun InsetField(text: String, onClick: () -> Unit, modifier: Modifier = M
 
 @Composable
 private fun CategoryFilterChip(category: CategoryEntity, selected: Boolean, onToggle: () -> Unit) {
+    FilterChipBox(label = category.name, selected = selected, onToggle = onToggle)
+}
+
+@Composable
+private fun FilterChipBox(label: String, selected: Boolean, onToggle: () -> Unit) {
     val background = if (selected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant
     val content = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -203,6 +217,6 @@ private fun CategoryFilterChip(category: CategoryEntity, selected: Boolean, onTo
             .clickable(onClick = onToggle)
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
-        Text(category.name, style = MaterialTheme.typography.labelLarge, color = content)
+        Text(label, style = MaterialTheme.typography.labelLarge, color = content)
     }
 }

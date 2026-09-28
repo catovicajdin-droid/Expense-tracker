@@ -23,7 +23,11 @@ interface TransactionDao {
      * All filters are optional and combine with AND - a null/empty parameter is simply skipped.
      * Category matching is "any of categoryIds" (OR across categories) - categoryCount must be
      * categoryIds.size, passed separately since Room can't call .size on a bound List in SQL. Tag
-     * matching has two modes: matchAllTags=false means "has any of tagIds" (OR across tags),
+     * "Uncategorized" is its own switch rather than an id, since having no category cannot be
+     * expressed as one: with it on and no categories picked, only uncategorized rows come back; with
+     * categories picked too, it widens that selection rather than narrowing it.
+     *
+     * Tag matching has two modes: matchAllTags=false means "has any of tagIds" (OR across tags),
      * matchAllTags=true means "has every one of tagIds" (AND across tags), same reasoning for
      * tagCount.
      */
@@ -32,7 +36,11 @@ interface TransactionDao {
         SELECT transactions.*, raw_notifications.packageName as source
         FROM transactions
         JOIN raw_notifications ON raw_notifications.id = transactions.rawNotificationId
-        WHERE (:categoryCount = 0 OR categoryId IN (:categoryIds))
+        WHERE (
+            (:categoryCount = 0 AND :includeUncategorized = 0)
+            OR categoryId IN (:categoryIds)
+            OR (:includeUncategorized = 1 AND categoryId IS NULL)
+        )
         AND (:fromMillis IS NULL OR transactions.postedAt >= :fromMillis)
         AND (:toMillis IS NULL OR transactions.postedAt <= :toMillis)
         AND (:minAmount IS NULL OR amount >= :minAmount)
@@ -51,6 +59,7 @@ interface TransactionDao {
     fun filteredWithSource(
         categoryIds: List<Long>,
         categoryCount: Int,
+        includeUncategorized: Boolean,
         fromMillis: Long?,
         toMillis: Long?,
         minAmount: Double?,

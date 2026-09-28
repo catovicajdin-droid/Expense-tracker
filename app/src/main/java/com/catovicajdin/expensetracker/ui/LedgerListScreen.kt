@@ -91,6 +91,7 @@ fun LedgerListScreen(
     val rows by db.transactionDao().filteredWithSource(
         categoryIds = filter.categoryIds.toList(),
         categoryCount = filter.categoryIds.size,
+        includeUncategorized = filter.includeUncategorized,
         fromMillis = filter.fromMillis,
         toMillis = filter.toMillis,
         minAmount = filter.minAmount,
@@ -500,8 +501,9 @@ private fun filterSummary(
     // Names are resolved against the live lists, so a filter naming something since deleted would
     // otherwise join to an empty string and leave the bar blank - never show nothing.
     val categoryNames = categories.filter { filter.categoryIds.contains(it.id) }.map { it.name }
+        .let { if (filter.includeUncategorized) it + "Uncategorized" else it }
     parts += when {
-        filter.categoryIds.isEmpty() -> "All categories"
+        filter.categoryIds.isEmpty() && !filter.includeUncategorized -> "All categories"
         categoryNames.isEmpty() -> "Deleted category"
         else -> categoryNames.joinToString(", ")
     }

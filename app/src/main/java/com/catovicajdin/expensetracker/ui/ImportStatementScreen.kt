@@ -59,12 +59,15 @@ import com.catovicajdin.expensetracker.ui.components.formatAmount
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 
-/** What the choice dialog is currently being opened for: a whole merchant, or one line of it. */
+/**
+ * What the choice dialog is open for: a whole merchant, or particular rows of one. A single row is
+ * just a selection of one, so nothing needs a second code path.
+ */
 private sealed interface Editing {
     val group: MerchantGroup
 
     data class Merchant(override val group: MerchantGroup) : Editing
-    data class Row(override val group: MerchantGroup, val row: ImportRow) : Editing
+    data class Rows(override val group: MerchantGroup, val rows: List<ImportRow>) : Editing
 }
 
 private sealed interface Stage {
@@ -97,7 +100,10 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
     var stage by remember { mutableStateOf<Stage>(Stage.Idle) }
     var choices by remember { mutableStateOf<Map<String, GroupChoice>>(emptyMap()) }
     var rowChoices by remember { mutableStateOf<Map<Int, GroupChoice>>(emptyMap()) }
+    var dropped by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var expanded by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var onlyUncategorized by remember { mutableStateOf(false) }
     var skipDuplicates by remember { mutableStateOf(true) }
     var editing by remember { mutableStateOf<Editing?>(null) }
     var confirmUnreconciled by remember { mutableStateOf(false) }
@@ -116,7 +122,10 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
                             .filter { it.suggestedCategoryId != null }
                             .associate { it.key to GroupChoice(categoryId = it.suggestedCategoryId) }
                         rowChoices = emptyMap()
+                        dropped = emptySet()
+                        selected = emptySet()
                         expanded = emptySet()
+                        onlyUncategorized = false
                         stage = Stage.Review(plan)
                     }
                 }
@@ -130,7 +139,7 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
 
     fun commit(plan: ImportPlan) {
         scope.launch {
-            val imported = StatementImport.commit(context, plan, choices, rowChoices, skipDuplicates)
+            val imported = StatementImport.commit(context, plan, choices, rowChoices, dropped, skipDuplicates)
             stage = Stage.Done(imported, plan.sourceKey)
         }
     }
@@ -232,10 +241,16 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
                 categories = categories,
                 choices = choices,
                 rowChoices = rowChoices,
+                dropped = dropped,
+                selected = selected,
                 expanded = expanded,
+                onlyUncategorized = onlyUncategorized,
                 skipDuplicates = skipDuplicates,
+                onToggleOnlyUncategorized = { onlyUncategorized = !onlyUncategorized },
                 onToggleSkipDuplicates = { skipDuplicates = it },
                 onToggleExpanded = { key -> expanded = if (key in expanded) expanded - key else expanded + key },
+                onToggleSelected = { id -> selected = if (id in selected) selected - id else selected + id },
+                onClearSelection = { keys -> selected = selected - keys },
                 onEdit = { editing = it },
                 onImport = {
                     if (current.plan.statement.reconciles) commit(current.plan) else confirmUnreconciled = true
@@ -245,27 +260,53 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
     }
 
     editing?.let { target ->
-        val row = (target as? Editing.Row)?.row
+        val rows = (target as? Editing.Rows)?.rows
         val groupChoice = choices[target.group.key] ?: GroupChoice()
+        val single = rows?.singleOrNull()
+        val dateFormat = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
         ChoiceDialog(
-            title = row?.shortDescription ?: target.group.label,
-            subtitle = if (row == null) {
-                "${target.group.rows.size} transactions · ${formatAmount(target.group.total)}"
-            } else {
-                "${formatAmount(row.amount)} · this one only"
+            title = when {
+                rows == null -> target.group.label
+                single != null -> single.shortDescription
+                else -> "${rows.size} transactions"
+            },
+            subtitle = when {
+                rows == null -> "${target.group.rows.size} transactions · ${formatAmount(target.group.total)}"
+                single != null -> "${single.postingDate.format(dateFormat)} · ${formatAmount(single.amount)}"
+                else -> "${rows.size} selected · ${formatAmount(rows.sumOf { it.amount })}"
             },
             categories = categories,
             allTags = tags,
-            current = if (row == null) groupChoice else rowChoices[row.id] ?: groupChoice,
-            canFollowMerchant = row != null && rowChoices.containsKey(row.id),
+            current = rows?.firstNotNullOfOrNull { rowChoices[it.id] } ?: groupChoice,
+            canFollowMerchant = rows != null && rows.any { rowChoices.containsKey(it.id) },
+            // A whole merchant can be left out too, which is how you drop 25 conversion fees without
+            // ticking them one by one.
+            droppable = rows ?: target.group.rows,
+            allDropped = (rows ?: target.group.rows).all { it.id in dropped },
+            onToggleDropped = {
+                val ids = (rows ?: target.group.rows).map { it.id }.toSet()
+                dropped = if (ids.all { it in dropped }) dropped - ids else dropped + ids
+                editing = null
+            },
             onFollowMerchant = {
-                if (row != null) rowChoices = rowChoices - row.id
+                if (rows != null) rowChoices = rowChoices - rows.map { it.id }.toSet()
                 editing = null
             },
             onDismiss = { editing = null },
-            onApply = { choice ->
-                if (row == null) choices = choices + (target.group.key to choice)
-                else rowChoices = rowChoices + (row.id to choice)
+            onApply = { choice, pendingTagNames ->
+                scope.launch {
+                    // Tags typed here are created now rather than at import time: until the tag
+                    // exists it cannot be offered to the other merchants in this same review, nor
+                    // shown ticked where it was typed, which is merely confusing.
+                    val created = pendingTagNames.map { db.tagDao().getOrCreate(it) }
+                    val settled = choice.copy(tagIds = choice.tagIds + created)
+                    if (rows == null) {
+                        choices = choices + (target.group.key to settled)
+                    } else {
+                        rowChoices = rowChoices + rows.associate { it.id to settled }
+                        selected = selected - rows.map { it.id }.toSet()
+                    }
+                }
                 editing = null
             },
         )
@@ -335,17 +376,33 @@ private fun ColumnScope.ReviewContent(
     categories: List<CategoryEntity>,
     choices: Map<String, GroupChoice>,
     rowChoices: Map<Int, GroupChoice>,
+    dropped: Set<Int>,
+    selected: Set<Int>,
     expanded: Set<String>,
+    onlyUncategorized: Boolean,
     skipDuplicates: Boolean,
+    onToggleOnlyUncategorized: () -> Unit,
     onToggleSkipDuplicates: (Boolean) -> Unit,
     onToggleExpanded: (String) -> Unit,
+    onToggleSelected: (Int) -> Unit,
+    onClearSelection: (Set<Int>) -> Unit,
     onEdit: (Editing) -> Unit,
     onImport: () -> Unit,
 ) {
     val dateFormat = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
     val dayFormat = remember { DateTimeFormatter.ofPattern("dd.MM.") }
     val statement = plan.statement
-    val importable = plan.importableCount(skipDuplicates)
+
+    fun categoryIdFor(group: MerchantGroup, row: ImportRow): Long? =
+        (rowChoices[row.id] ?: choices[group.key])?.categoryId
+
+    val importable = plan.groups.sumOf { group ->
+        group.rows.count { it.id !in dropped && !(skipDuplicates && it.looksAlreadyPresent) }
+    }
+    val uncategorizedGroups = plan.groups.filter { group ->
+        group.rows.any { it.id !in dropped && categoryIdFor(group, it) == null }
+    }
+    val shownGroups = if (onlyUncategorized) uncategorizedGroups else plan.groups
 
     LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -391,7 +448,8 @@ private fun ColumnScope.ReviewContent(
                     modifier = Modifier.padding(top = 10.dp),
                 )
                 Text(
-                    "Tap a merchant to set it for all of them, or open it to set a single transaction.",
+                    "Tap a merchant to set it for all of them, or open it to tick off particular " +
+                        "transactions and set those together.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -401,6 +459,14 @@ private fun ColumnScope.ReviewContent(
                         "${plan.nonExpenseCount} row(s) are money in or reversed charges, so they are left out.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+                if (dropped.isNotEmpty()) {
+                    Text(
+                        "${dropped.size} left out by you.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.padding(top = 6.dp),
                     )
                 }
@@ -429,13 +495,39 @@ private fun ColumnScope.ReviewContent(
                         )
                     }
                 }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onToggleOnlyUncategorized() }
+                        .padding(top = 10.dp),
+                ) {
+                    Text(if (onlyUncategorized) "☑" else "☐", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Show only what still has no category (${uncategorizedGroups.size})",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 12.dp),
+                    )
+                }
             }
         }
 
-        items(plan.groups, key = { it.key }) { group ->
+        if (shownGroups.isEmpty()) {
+            item {
+                ModernistCard {
+                    Text(
+                        "Every merchant has a category.",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+            }
+        }
+
+        items(shownGroups, key = { it.key }) { group ->
             val groupChoice = choices[group.key]
             val groupCategory = categories.find { it.id == groupChoice?.categoryId }
             val overridden = group.rows.count { rowChoices.containsKey(it.id) }
+            val selectedHere = group.rows.filter { it.id in selected }
             val isOpen = group.key in expanded
 
             ModernistCard(contentPadding = PaddingValues(18.dp, 14.dp)) {
@@ -461,44 +553,85 @@ private fun ColumnScope.ReviewContent(
                     Text(formatAmount(group.total), style = MaterialTheme.typography.titleSmall)
                 }
 
-                if (group.rows.size > 1 || isOpen) {
-                    TextButton(
-                        onClick = { onToggleExpanded(group.key) },
-                        contentPadding = PaddingValues(0.dp),
-                        modifier = Modifier.padding(top = 2.dp),
-                    ) {
-                        Text(
-                            if (isOpen) "Hide transactions" else "Show ${group.rows.size} transactions",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                TextButton(
+                    onClick = { onToggleExpanded(group.key) },
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.padding(top = 2.dp),
+                ) {
+                    Text(
+                        if (isOpen) "Hide transactions" else "Show ${group.rows.size} transaction${if (group.rows.size == 1) "" else "s"}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 if (isOpen) {
+                    if (selectedHere.isNotEmpty()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        ) {
+                            Text(
+                                "${selectedHere.size} selected · ${formatAmount(selectedHere.sumOf { it.amount })}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(
+                                onClick = { onClearSelection(selectedHere.map { it.id }.toSet()) },
+                                contentPadding = PaddingValues(6.dp, 0.dp),
+                            ) { Text("Clear", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            TextButton(
+                                onClick = { onEdit(Editing.Rows(group, selectedHere)) },
+                                contentPadding = PaddingValues(6.dp, 0.dp),
+                            ) { Text("Edit these", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary) }
+                        }
+                    }
+
                     group.rows.forEach { row ->
                         Divider2()
                         val own = rowChoices[row.id]
-                        val rowCategory = categories.find { it.id == (own ?: groupChoice)?.categoryId }
+                        val rowCategory = categories.find { it.id == categoryIdFor(group, row) }
+                        val isDropped = row.id in dropped
+                        val isSelected = row.id in selected
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onEdit(Editing.Row(group, row)) }
-                                .padding(vertical = 10.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (isSelected) "☑" else "☐",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier
+                                    .clickable { onToggleSelected(row.id) }
+                                    .padding(vertical = 8.dp, horizontal = 2.dp),
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { onEdit(Editing.Rows(group, listOf(row))) }
+                                    .padding(start = 10.dp, top = 8.dp, bottom = 8.dp),
+                            ) {
                                 Text(
-                                    "${row.postingDate.format(dayFormat)} · ${formatAmount(row.amount)}",
+                                    "${row.postingDate.format(dateFormat)} · ${formatAmount(row.amount)}",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isDropped) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                                 )
+                                val note = when {
+                                    isDropped -> "left out"
+                                    own != null -> "${rowCategory?.name ?: "uncategorized"} · set on its own"
+                                    else -> rowCategory?.name ?: "uncategorized"
+                                }
+                                val cardDate = if (row.transactionDate != row.postingDate) {
+                                    " · card used ${row.transactionDate.format(dayFormat)}"
+                                } else {
+                                    ""
+                                }
                                 Text(
-                                    (rowCategory?.name ?: "uncategorized") + if (own != null) " · set on its own" else "",
+                                    note + cardDate,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (own != null) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = if (isDropped || own != null) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            CategoryIconBadge(rowCategory, size = 24.dp)
+                            CategoryIconBadge(if (isDropped) null else rowCategory, size = 24.dp)
                         }
                     }
                 }
@@ -520,8 +653,9 @@ private fun ColumnScope.ReviewContent(
 }
 
 /**
- * Category and tags, for a whole merchant or for one of its transactions. A row that has been set on
- * its own can be handed back to the merchant, so an override is never a one-way door.
+ * Category and tags, for a whole merchant or for rows of it. A row set on its own can be handed back
+ * to the merchant, so an override is never a one-way door, and rows can be left out of the import
+ * entirely without touching the rest.
  */
 @Composable
 private fun ChoiceDialog(
@@ -531,13 +665,16 @@ private fun ChoiceDialog(
     allTags: List<TagEntity>,
     current: GroupChoice,
     canFollowMerchant: Boolean,
+    droppable: List<ImportRow>,
+    allDropped: Boolean,
+    onToggleDropped: () -> Unit,
     onFollowMerchant: () -> Unit,
     onDismiss: () -> Unit,
-    onApply: (GroupChoice) -> Unit,
+    onApply: (GroupChoice, List<String>) -> Unit,
 ) {
     var categoryId by remember { mutableStateOf(current.categoryId) }
     var tagIds by remember { mutableStateOf(current.tagIds) }
-    var newTagText by remember { mutableStateOf(current.newTagNames.joinToString(", ")) }
+    var newTagText by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -595,11 +732,21 @@ private fun ChoiceDialog(
                         Text("Follow the merchant again", color = MaterialTheme.colorScheme.secondary)
                     }
                 }
+                TextButton(onClick = onToggleDropped, contentPadding = PaddingValues(0.dp)) {
+                    Text(
+                        if (allDropped) {
+                            "Import ${if (droppable.size == 1) "this" else "these"} after all"
+                        } else {
+                            "Do not import ${if (droppable.size == 1) "this one" else "these ${droppable.size}"}"
+                        },
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                onApply(GroupChoice(categoryId, tagIds, parseTagNames(newTagText)))
+                onApply(GroupChoice(categoryId, tagIds), parseTagNames(newTagText))
             }) { Text("Apply") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
