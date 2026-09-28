@@ -7,6 +7,7 @@ sealed class Screen {
     data object BudgetDashboard : Screen()
     data object BudgetSettings : Screen()
     data object Categories : Screen()
+    data object Duplicates : Screen()
     data object NeedsReview : Screen()
 
     /** resolvingRawId set means this add-flow finishes a NEEDS_REVIEW row instead of starting fresh. */

@@ -63,8 +63,12 @@ fun AppRoot(
                 is Screen.BudgetSettings -> BudgetSettingsScreen(
                     onBack = { onNavigate(Screen.BudgetDashboard) },
                     onOpenCategories = { onNavigate(Screen.Categories) },
+                    onOpenDuplicates = { onNavigate(Screen.Duplicates) },
                 )
                 is Screen.Categories -> CategoriesScreen(
+                    onBack = { onNavigate(Screen.BudgetSettings) },
+                )
+                is Screen.Duplicates -> DuplicatesScreen(
                     onBack = { onNavigate(Screen.BudgetSettings) },
                 )
                 is Screen.NeedsReview -> NeedsReviewScreen(

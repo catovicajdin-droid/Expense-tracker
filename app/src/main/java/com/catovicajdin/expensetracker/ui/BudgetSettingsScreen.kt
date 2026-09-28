@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +56,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
-fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
+fun BudgetSettingsScreen(
+    onBack: () -> Unit,
+    onOpenCategories: () -> Unit,
+    onOpenDuplicates: () -> Unit,
+) {
     val context = LocalContext.current
     val db = AppDatabase.get(context)
     val scope = rememberCoroutineScope()
@@ -80,6 +87,13 @@ fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
     val spentByCategory = remember(categoryTotals) { categoryTotals.associate { it.categoryId to it.total } }
     val budgetByCategory = remember(categoryBudgets) { categoryBudgets.associate { it.categoryId to it.amount } }
     val sortedTotals = remember(categoryTotals) { categoryTotals.sortedByDescending { it.total } }
+    val monthsWithData by db.transactionDao().monthsWithData().collectAsState(initial = emptyList())
+    val duplicateGroups by db.transactionDao().duplicateGroups().collectAsState(initial = emptyList())
+    // The month being viewed is always offered, even before anything is recorded in it, so the strip
+    // never leaves the selection unmarked.
+    val monthsToShow = remember(monthsWithData, yearMonth) {
+        (monthsWithData + yearMonth).distinct().sortedDescending()
+    }
 
     // A view preference for this screen alone - the dashboard keeps its own, and neither writes
     // anything back, so switching here can't disturb the other.
@@ -176,6 +190,30 @@ fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
             }
 
             item {
+                // Only offered when there is something to clean up - the duplication bugs are fixed,
+                // so for a database that never hit them this row would never mean anything.
+                if (duplicateGroups.isNotEmpty()) {
+                    ModernistCard(contentPadding = PaddingValues(0.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenDuplicates)
+                                .padding(20.dp, 18.dp),
+                        ) {
+                            Text("Duplicate transactions", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "${duplicateGroups.size} →",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
                 ModernistCard {
                     SectionLabel("Import statement")
                     Text(
@@ -211,18 +249,36 @@ fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
             }
 
             item {
-                if (sortedTotals.isNotEmpty()) {
+                if (monthsToShow.isNotEmpty()) {
                     ModernistCard {
                         SectionLabel("Where your money goes")
-                        val donutEntries = sortedTotals.map { entry ->
-                            val category = categories.find { it.id == entry.categoryId }
-                            DonutEntry(
-                                label = category?.name ?: "Uncategorized",
-                                amount = entry.total,
-                                colorHex = category?.colorHex ?: "#9E9E9E",
+                        // Its own month strip rather than relying on the selector at the top of the
+                        // screen: by the time you have scrolled down to the chart, that one is long
+                        // out of sight, and which month the slices belong to is the whole question.
+                        MonthStrip(
+                            months = monthsToShow,
+                            selected = yearMonth,
+                            onSelect = { yearMonth = it },
+                            modifier = Modifier.padding(top = 12.dp),
+                        )
+                        if (sortedTotals.isEmpty()) {
+                            Text(
+                                "No categorized spending in ${MonthRange.displayLabel(yearMonth)}.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 14.dp),
                             )
+                        } else {
+                            val donutEntries = sortedTotals.map { entry ->
+                                val category = categories.find { it.id == entry.categoryId }
+                                DonutEntry(
+                                    label = category?.name ?: "Uncategorized",
+                                    amount = entry.total,
+                                    colorHex = category?.colorHex ?: "#9E9E9E",
+                                )
+                            }
+                            CategoryDonutChart(entries = donutEntries, modifier = Modifier.padding(top = 14.dp))
                         }
-                        CategoryDonutChart(entries = donutEntries, modifier = Modifier.padding(top = 14.dp))
                     }
                 }
             }
@@ -230,6 +286,42 @@ fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
         }
     }
 
+}
+
+/** A scrolling row of the months there is data for, newest first, as a shortcut past Prev/Next. */
+@Composable
+private fun MonthStrip(
+    months: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val selectedIndex = months.indexOf(selected)
+    val listState = rememberLazyListState()
+    LaunchedEffect(selectedIndex) {
+        if (selectedIndex >= 0) listState.animateScrollToItem(selectedIndex)
+    }
+    LazyRow(
+        state = listState,
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(months, key = { it }) { month ->
+            val isSelected = month == selected
+            Text(
+                MonthRange.shortLabel(month),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (isSelected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(percent = 50),
+                    )
+                    .clickable { onSelect(month) }
+                    .padding(14.dp, 8.dp),
+            )
+        }
+    }
 }
 
 @Composable

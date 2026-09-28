@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import com.catovicajdin.expensetracker.data.CategoryTotal
+import com.catovicajdin.expensetracker.data.DuplicateGroup
 import com.catovicajdin.expensetracker.data.TransactionRow
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
@@ -143,4 +144,48 @@ interface TransactionDao {
         """
     )
     fun totalSpent(fromMillis: Long, toMillis: Long): Flow<Double>
+
+    /**
+     * The months that actually have transactions, newest first, as "YYYY-MM" keys. Computed in the
+     * device's own zone ('localtime') so a late-evening purchase lands in the month the rest of the
+     * app puts it in - [com.catovicajdin.expensetracker.data.MonthRange] slices by local midnight too.
+     */
+    @Query(
+        """
+        SELECT DISTINCT strftime('%Y-%m', postedAt / 1000, 'unixepoch', 'localtime') AS ym
+        FROM transactions
+        ORDER BY ym DESC
+        """
+    )
+    fun monthsWithData(): Flow<List<String>>
+
+    /**
+     * Transactions recorded more than once from the same notification text - what the re-post and
+     * the ingest race left behind before either was fixed. Both fixes were forward-only, so rows
+     * already written stay until something clears them.
+     *
+     * Two guards keep honest rows out of the list. Statement rows are excluded: two identical lines
+     * on a statement are two real purchases, not one recorded twice. And every copy in a group has
+     * to come from a *different* raw notification, which is what duplication looks like - a split
+     * puts two rows against the one notification, and an even split would otherwise look identical.
+     */
+    @Query(
+        """
+        SELECT GROUP_CONCAT(t.id) AS ids, COUNT(*) AS copies,
+               r.title AS title, r.body AS body,
+               MIN(t.amount) AS amount, MIN(t.currency) AS currency,
+               MIN(t.postedAt) AS firstPostedAt, MAX(t.postedAt) AS lastPostedAt
+        FROM transactions t
+        JOIN raw_notifications r ON r.id = t.rawNotificationId
+        WHERE r.packageName NOT LIKE 'statement%'
+        GROUP BY r.packageName, r.title, r.body, t.amount
+        HAVING COUNT(*) > 1 AND COUNT(DISTINCT t.rawNotificationId) = COUNT(*)
+        ORDER BY MAX(t.postedAt) DESC
+        """
+    )
+    fun duplicateGroups(): Flow<List<DuplicateGroup>>
+
+    /** Leaves the originating raw_notifications rows intact, same as [delete]. */
+    @Query("DELETE FROM transactions WHERE id IN (:ids)")
+    suspend fun deleteAll(ids: List<Long>)
 }

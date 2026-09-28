@@ -19,6 +19,13 @@ object MonthRange {
 
     fun next(yearMonth: String): String = YearMonth.parse(yearMonth).plusMonths(1).toString()
 
+    /** "Sep 2026" - for chips and other places the full month name would not fit. */
+    fun shortLabel(yearMonth: String): String {
+        val ym = YearMonth.parse(yearMonth)
+        val monthName = ym.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
+        return "$monthName ${ym.year}"
+    }
+
     fun displayLabel(yearMonth: String): String {
         val ym = YearMonth.parse(yearMonth)
         val monthName = ym.month.name.lowercase().replaceFirstChar { it.uppercase() }
