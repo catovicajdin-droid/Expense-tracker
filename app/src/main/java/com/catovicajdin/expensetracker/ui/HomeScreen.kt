@@ -125,15 +125,6 @@ fun HomeScreen(
                     )
                 }
                 BudgetBar(fraction = (spent / budget).toFloat(), height = 10.dp, modifier = Modifier.padding(top = 12.dp))
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-                ) {
-                    Text(MonthRange.displayLabel(lastMonth), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(formatAmount(lastSpent), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                BudgetBar(fraction = (lastSpent / budget).toFloat(), height = 5.dp, muted = true, modifier = Modifier.padding(top = 7.dp))
             }
         }
 
@@ -215,8 +206,8 @@ fun HomeScreen(
 }
 
 @Composable
-private fun BudgetBar(fraction: Float, height: Dp, modifier: Modifier = Modifier, muted: Boolean = false) {
-    val fillColor = if (muted) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onBackground
+private fun BudgetBar(fraction: Float, height: Dp, modifier: Modifier = Modifier) {
+    val fillColor = MaterialTheme.colorScheme.onBackground
     val pill = RoundedCornerShape(percent = 50)
     Box(modifier = modifier.fillMaxWidth().height(height).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f), pill)) {
         Box(
