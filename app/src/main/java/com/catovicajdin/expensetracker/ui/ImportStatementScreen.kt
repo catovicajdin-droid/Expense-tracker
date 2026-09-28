@@ -45,17 +45,27 @@ import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.data.statement.GroupChoice
 import com.catovicajdin.expensetracker.data.statement.ImportPlan
+import com.catovicajdin.expensetracker.data.statement.ImportRow
 import com.catovicajdin.expensetracker.data.statement.MerchantGroup
 import com.catovicajdin.expensetracker.data.statement.ParseResult
 import com.catovicajdin.expensetracker.data.statement.PdfGlyphReader
 import com.catovicajdin.expensetracker.data.statement.StatementImport
 import com.catovicajdin.expensetracker.data.statement.StatementParser
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
+import com.catovicajdin.expensetracker.ui.components.Divider2
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import com.catovicajdin.expensetracker.ui.components.formatAmount
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
+
+/** What the choice dialog is currently being opened for: a whole merchant, or one line of it. */
+private sealed interface Editing {
+    val group: MerchantGroup
+
+    data class Merchant(override val group: MerchantGroup) : Editing
+    data class Row(override val group: MerchantGroup, val row: ImportRow) : Editing
+}
 
 private sealed interface Stage {
     data object Idle : Stage
@@ -86,8 +96,10 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
 
     var stage by remember { mutableStateOf<Stage>(Stage.Idle) }
     var choices by remember { mutableStateOf<Map<String, GroupChoice>>(emptyMap()) }
+    var rowChoices by remember { mutableStateOf<Map<Int, GroupChoice>>(emptyMap()) }
+    var expanded by remember { mutableStateOf<Set<String>>(emptySet()) }
     var skipDuplicates by remember { mutableStateOf(true) }
-    var editingGroup by remember { mutableStateOf<MerchantGroup?>(null) }
+    var editing by remember { mutableStateOf<Editing?>(null) }
     var confirmUnreconciled by remember { mutableStateOf(false) }
 
     fun load(uri: Uri, password: String?) {
@@ -103,6 +115,8 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
                         choices = plan.groups
                             .filter { it.suggestedCategoryId != null }
                             .associate { it.key to GroupChoice(categoryId = it.suggestedCategoryId) }
+                        rowChoices = emptyMap()
+                        expanded = emptySet()
                         stage = Stage.Review(plan)
                     }
                 }
@@ -116,7 +130,7 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
 
     fun commit(plan: ImportPlan) {
         scope.launch {
-            val imported = StatementImport.commit(context, plan, choices, skipDuplicates)
+            val imported = StatementImport.commit(context, plan, choices, rowChoices, skipDuplicates)
             stage = Stage.Done(imported, plan.sourceKey)
         }
     }
@@ -217,9 +231,12 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
                 plan = current.plan,
                 categories = categories,
                 choices = choices,
+                rowChoices = rowChoices,
+                expanded = expanded,
                 skipDuplicates = skipDuplicates,
                 onToggleSkipDuplicates = { skipDuplicates = it },
-                onEditGroup = { editingGroup = it },
+                onToggleExpanded = { key -> expanded = if (key in expanded) expanded - key else expanded + key },
+                onEdit = { editing = it },
                 onImport = {
                     if (current.plan.statement.reconciles) commit(current.plan) else confirmUnreconciled = true
                 },
@@ -227,16 +244,29 @@ fun ImportStatementScreen(onBack: () -> Unit, onImported: () -> Unit) {
         }
     }
 
-    editingGroup?.let { group ->
-        ImportGroupDialog(
-            group = group,
+    editing?.let { target ->
+        val row = (target as? Editing.Row)?.row
+        val groupChoice = choices[target.group.key] ?: GroupChoice()
+        ChoiceDialog(
+            title = row?.shortDescription ?: target.group.label,
+            subtitle = if (row == null) {
+                "${target.group.rows.size} transactions · ${formatAmount(target.group.total)}"
+            } else {
+                "${formatAmount(row.amount)} · this one only"
+            },
             categories = categories,
             allTags = tags,
-            current = choices[group.key] ?: GroupChoice(),
-            onDismiss = { editingGroup = null },
+            current = if (row == null) groupChoice else rowChoices[row.id] ?: groupChoice,
+            canFollowMerchant = row != null && rowChoices.containsKey(row.id),
+            onFollowMerchant = {
+                if (row != null) rowChoices = rowChoices - row.id
+                editing = null
+            },
+            onDismiss = { editing = null },
             onApply = { choice ->
-                choices = choices + (group.key to choice)
-                editingGroup = null
+                if (row == null) choices = choices + (target.group.key to choice)
+                else rowChoices = rowChoices + (row.id to choice)
+                editing = null
             },
         )
     }
@@ -304,12 +334,16 @@ private fun ColumnScope.ReviewContent(
     plan: ImportPlan,
     categories: List<CategoryEntity>,
     choices: Map<String, GroupChoice>,
+    rowChoices: Map<Int, GroupChoice>,
+    expanded: Set<String>,
     skipDuplicates: Boolean,
     onToggleSkipDuplicates: (Boolean) -> Unit,
-    onEditGroup: (MerchantGroup) -> Unit,
+    onToggleExpanded: (String) -> Unit,
+    onEdit: (Editing) -> Unit,
     onImport: () -> Unit,
 ) {
     val dateFormat = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
+    val dayFormat = remember { DateTimeFormatter.ofPattern("dd.MM.") }
     val statement = plan.statement
     val importable = plan.importableCount(skipDuplicates)
 
@@ -318,8 +352,8 @@ private fun ColumnScope.ReviewContent(
             ModernistCard {
                 SectionLabel("What was read")
                 Text(
-                    "${statement.rows.size} rows · ${statement.firstDate.format(dateFormat)} – " +
-                        statement.lastDate.format(dateFormat),
+                    "${statement.rows.size} rows · ${statement.postingFirst.format(dateFormat)} – " +
+                        statement.postingLast.format(dateFormat),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(top = 10.dp),
                 )
@@ -335,6 +369,16 @@ private fun ColumnScope.ReviewContent(
                     color = if (statement.reconciles) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+                if (plan.transactedEarlier > 0) {
+                    Text(
+                        "${plan.transactedEarlier} of these were paid for late in the previous month " +
+                            "and only posted in this one. They are filed on the day the money left " +
+                            "the account, so the statement's month stays whole.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
             }
         }
 
@@ -345,6 +389,12 @@ private fun ColumnScope.ReviewContent(
                     "${plan.expenseCount} expenses across ${plan.groups.size} merchants.",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 10.dp),
+                )
+                Text(
+                    "Tap a merchant to set it for all of them, or open it to set a single transaction.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
                 if (plan.nonExpenseCount > 0) {
                     Text(
@@ -383,14 +433,17 @@ private fun ColumnScope.ReviewContent(
         }
 
         items(plan.groups, key = { it.key }) { group ->
-            val choice = choices[group.key]
-            val category = categories.find { it.id == choice?.categoryId }
+            val groupChoice = choices[group.key]
+            val groupCategory = categories.find { it.id == groupChoice?.categoryId }
+            val overridden = group.rows.count { rowChoices.containsKey(it.id) }
+            val isOpen = group.key in expanded
+
             ModernistCard(contentPadding = PaddingValues(18.dp, 14.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().clickable { onEditGroup(group) },
+                    modifier = Modifier.fillMaxWidth().clickable { onEdit(Editing.Merchant(group)) },
                 ) {
-                    CategoryIconBadge(category, size = 30.dp)
+                    CategoryIconBadge(groupCategory, size = 30.dp)
                     Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(
                             group.label,
@@ -399,12 +452,55 @@ private fun ColumnScope.ReviewContent(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            "${group.rows.size} × · ${category?.name ?: "tap to categorize"}",
+                            "${group.rows.size} × · ${groupCategory?.name ?: "tap to categorize"}" +
+                                if (overridden > 0) " · $overridden set on their own" else "",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Text(formatAmount(group.total), style = MaterialTheme.typography.titleSmall)
+                }
+
+                if (group.rows.size > 1 || isOpen) {
+                    TextButton(
+                        onClick = { onToggleExpanded(group.key) },
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.padding(top = 2.dp),
+                    ) {
+                        Text(
+                            if (isOpen) "Hide transactions" else "Show ${group.rows.size} transactions",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                if (isOpen) {
+                    group.rows.forEach { row ->
+                        Divider2()
+                        val own = rowChoices[row.id]
+                        val rowCategory = categories.find { it.id == (own ?: groupChoice)?.categoryId }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onEdit(Editing.Row(group, row)) }
+                                .padding(vertical = 10.dp),
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "${row.postingDate.format(dayFormat)} · ${formatAmount(row.amount)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Text(
+                                    (rowCategory?.name ?: "uncategorized") + if (own != null) " · set on its own" else "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (own != null) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            CategoryIconBadge(rowCategory, size = 24.dp)
+                        }
+                    }
                 }
             }
         }
@@ -423,13 +519,19 @@ private fun ColumnScope.ReviewContent(
     Box(modifier = Modifier.height(12.dp))
 }
 
-/** Category and tags for every transaction from one merchant, decided once. */
+/**
+ * Category and tags, for a whole merchant or for one of its transactions. A row that has been set on
+ * its own can be handed back to the merchant, so an override is never a one-way door.
+ */
 @Composable
-private fun ImportGroupDialog(
-    group: MerchantGroup,
+private fun ChoiceDialog(
+    title: String,
+    subtitle: String,
     categories: List<CategoryEntity>,
     allTags: List<TagEntity>,
     current: GroupChoice,
+    canFollowMerchant: Boolean,
+    onFollowMerchant: () -> Unit,
     onDismiss: () -> Unit,
     onApply: (GroupChoice) -> Unit,
 ) {
@@ -439,14 +541,10 @@ private fun ImportGroupDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(group.label, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        title = { Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    "${group.rows.size} transactions · ${formatAmount(group.total)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SectionLabel("Category", modifier = Modifier.padding(top = 16.dp, bottom = 10.dp))
                 LazyRow {
                     item {
@@ -488,6 +586,15 @@ private fun ImportGroupDialog(
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
+                if (canFollowMerchant) {
+                    TextButton(
+                        onClick = onFollowMerchant,
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.padding(top = 10.dp),
+                    ) {
+                        Text("Follow the merchant again", color = MaterialTheme.colorScheme.secondary)
+                    }
+                }
             }
         },
         confirmButton = {

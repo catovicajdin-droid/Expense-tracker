@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
+import com.catovicajdin.expensetracker.data.CategorizedSourceText
 import com.catovicajdin.expensetracker.data.CategoryTotal
 import com.catovicajdin.expensetracker.data.DuplicateGroup
 import com.catovicajdin.expensetracker.data.TransactionRow
@@ -198,17 +199,19 @@ interface TransactionDao {
     suspend fun mostRecentCurrency(): String?
 
     /**
-     * The category last given to a transaction whose source text mentions this merchant. Statement
-     * rows keep their line in raw_notifications, so importing one month teaches the next one - and a
-     * bank that names the merchant in its notifications feeds the same suggestion.
+     * The source text of every categorized transaction, oldest first, so an import can work out what
+     * a merchant was filed under before. Statement rows keep their line, and a notification keeps
+     * its message, so both teach the next import - and because this reads the transactions rather
+     * than a table of saved rules, correcting a category in the ledger corrects the suggestion too.
      */
     @Query(
         """
-        SELECT t.categoryId FROM transactions t
+        SELECT r.body AS body, t.categoryId AS categoryId
+        FROM transactions t
         JOIN raw_notifications r ON r.id = t.rawNotificationId
-        WHERE t.categoryId IS NOT NULL AND UPPER(r.body) LIKE '%' || :merchant || '%'
-        ORDER BY t.postedAt DESC LIMIT 1
+        WHERE t.categoryId IS NOT NULL
+        ORDER BY t.postedAt ASC
         """
     )
-    suspend fun suggestedCategoryForDescription(merchant: String): Long?
+    suspend fun categorizedSourceTexts(): List<CategorizedSourceText>
 }

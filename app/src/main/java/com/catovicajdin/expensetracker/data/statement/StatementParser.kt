@@ -31,8 +31,14 @@ data class ParsedStatement(
     val mismatches: Int,
 ) {
     val reconciles: Boolean get() = mismatches == 0
-    val firstDate: LocalDate get() = rows.minOf { it.transactionDate }
-    val lastDate: LocalDate get() = rows.maxOf { it.transactionDate }
+
+    /**
+     * The statement's own span: the days the bank posted these, which is what its period covers and
+     * what it is ordered by. The card dates run earlier - a purchase made on the last days of one
+     * month is posted in the next - so they are not what the statement is "from and to".
+     */
+    val postingFirst: LocalDate get() = rows.minOf { it.orderDate }
+    val postingLast: LocalDate get() = rows.maxOf { it.orderDate }
     val totalDebits: Double get() = rows.sumOf { it.debit }
     val totalCredits: Double get() = rows.sumOf { it.credit }
 }

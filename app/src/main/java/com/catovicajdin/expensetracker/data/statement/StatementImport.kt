@@ -12,9 +12,17 @@ import kotlin.math.abs
 
 /** One statement line that would become a transaction. */
 data class ImportRow(
+    /** Position in the statement. Identifies a row for an override that applies to it alone. */
+    val id: Int,
+    /** The statement line as written, kept with the transaction so it can be traced back. */
     val description: String,
+    /** The same line without the bank's standing wording - what to show when naming this one row. */
+    val shortDescription: String,
     val amount: Double,
-    val date: LocalDate,
+    /** The day the bank moved the money, which is the day the transaction is filed under. */
+    val postingDate: LocalDate,
+    /** The day the card was used. Earlier than the posting date by a day or three. */
+    val transactionDate: LocalDate,
     val postedAt: Long,
     /** The app already has a transaction of this amount around this date - almost certainly the same one. */
     val looksAlreadyPresent: Boolean,
@@ -45,6 +53,8 @@ data class ImportPlan(
     /** Rows already imported from a statement covering this same period. */
     val alreadyImportedFromPeriod: Int,
     val currency: String,
+    /** Rows the card was used on before the statement's own period - filed under the day they were posted. */
+    val transactedEarlier: Int,
 ) {
     val expenseCount: Int get() = groups.sumOf { it.rows.size }
     fun importableCount(skipDuplicates: Boolean): Int =
@@ -80,39 +90,54 @@ object StatementImport {
         }
 
         val prefix = commonPrefix(expenses.map { it.description })
-        val rows = expenses.map { row ->
-            val postedAt = row.transactionDate.atTime(NOON_HOUR, 0).atZone(zone).toInstant().toEpochMilli()
+        val rows = expenses.mapIndexed { index, row ->
+            // Filed under the posting date, the column the statement is ordered by: that is when the
+            // money left the account, and it keeps each statement's month whole. Using the card date
+            // instead would scatter the first few rows of every statement into the month before,
+            // which is not what importing "July" is understood to mean.
+            val postedAt = row.orderDate.atTime(NOON_HOUR, 0).atZone(zone).toInstant().toEpochMilli()
             val amount = StatementParser.round2(row.net)
+            // Matched against what is already recorded on the card date, though: a notification
+            // arrived when the card was used, not when the bank got round to posting it.
+            val usedAt = row.transactionDate.atTime(NOON_HOUR, 0).atZone(zone).toInstant().toEpochMilli()
             ImportRow(
+                id = index,
                 description = row.description,
+                shortDescription = stripPrefix(row.description, prefix),
                 amount = amount,
-                date = row.transactionDate,
+                postingDate = row.orderDate,
+                transactionDate = row.transactionDate,
                 postedAt = postedAt,
                 looksAlreadyPresent = existing.any {
                     abs(it.amount - amount) < 0.005 &&
-                        abs(it.postedAt - postedAt) <= DUPLICATE_DAYS * 24 * 60 * 60 * 1000
+                        abs(it.postedAt - usedAt) <= DUPLICATE_DAYS * 24 * 60 * 60 * 1000
                 },
             )
         }
 
+        // What the app has been told before, keyed the same way this statement is grouped: previous
+        // imports, and any notification whose text names a merchant. Built from the transactions
+        // themselves rather than from saved rules, so it follows every later correction - put a
+        // merchant in a different category in the ledger and the next import follows suit. Oldest
+        // first, so the most recent decision is the one that survives into the map.
+        val learned = db.transactionDao().categorizedSourceTexts()
+            .associate { merchantKey(it.body, prefix) to it.categoryId }
+
         val groups = rows.groupBy { merchantKey(it.description, prefix) }
             .map { (key, groupRows) ->
-                // The label is a description as the bank wrote it, punctuation and all, so it is what
-                // the suggestion is looked up by - the key has had its dots stripped to group
-                // "P-076" with "P-078", which would no longer match anything stored.
                 val label = groupRows.groupingBy { stripPrefix(it.description, prefix) }
                     .eachCount().maxByOrNull { it.value }?.key ?: key
                 MerchantGroup(
                     key = key,
                     label = label,
                     rows = groupRows.sortedBy { it.postedAt },
-                    suggestedCategoryId = db.transactionDao().suggestedCategoryForDescription(label.uppercase()),
+                    suggestedCategoryId = learned[key],
                 )
             }
             .sortedByDescending { it.total }
 
         val period = statement.rows.groupingBy { YearMonth.from(it.orderDate) }.eachCount()
-            .maxByOrNull { it.value }?.key ?: YearMonth.from(statement.firstDate)
+            .maxByOrNull { it.value }?.key ?: YearMonth.from(statement.postingFirst)
         // Each run gets its own key so it can be undone on its own; importing the same month twice
         // must not produce one batch that can only be removed wholesale.
         val sourceKey = "statement:$period:${System.currentTimeMillis()}"
@@ -125,6 +150,7 @@ object StatementImport {
             sourceKey = sourceKey,
             alreadyImportedFromPeriod = db.rawNotificationDao().countForPackagePrefix("statement:$period"),
             currency = db.transactionDao().mostRecentCurrency() ?: "BAM",
+            transactedEarlier = expenses.count { YearMonth.from(it.transactionDate) < period },
         )
     }
 
@@ -137,19 +163,22 @@ object StatementImport {
         context: Context,
         plan: ImportPlan,
         choices: Map<String, GroupChoice>,
+        rowChoices: Map<Int, GroupChoice>,
         skipDuplicates: Boolean,
     ): Int {
         val db = AppDatabase.get(context)
         var imported = 0
         for (group in plan.groups) {
-            val choice = choices[group.key] ?: GroupChoice()
-            val tagIds = choice.tagIds + choice.newTagNames.map { db.tagDao().getOrCreate(it) }
             for (row in group.rows) {
                 if (skipDuplicates && row.looksAlreadyPresent) continue
+                // A row set on its own wins over what the merchant was given; otherwise it follows
+                // the group, which is the point of grouping in the first place.
+                val choice = rowChoices[row.id] ?: choices[group.key] ?: GroupChoice()
+                val tagIds = choice.tagIds + choice.newTagNames.map { db.tagDao().getOrCreate(it) }
                 val rawId = db.rawNotificationDao().insert(
                     RawNotificationEntity(
                         packageName = plan.sourceKey,
-                        title = row.date.toString(),
+                        title = row.postingDate.toString(),
                         body = row.description,
                         postedAt = row.postedAt,
                         parseStatus = "PARSED",
