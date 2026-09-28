@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
+import com.catovicajdin.expensetracker.data.effectiveMonthlyBudget
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
@@ -65,7 +66,7 @@ fun HomeScreen(
     val categories by db.categoryDao().all().collectAsState(initial = emptyList())
     val spent by db.transactionDao().totalSpent(thisRange.first, thisRange.second).collectAsState(initial = 0.0)
     val lastSpent by db.transactionDao().totalSpent(lastRange.first, lastRange.second).collectAsState(initial = 0.0)
-    val monthlyBudget by db.budgetDao().monthlyBudgetFlow(yearMonth).collectAsState(initial = null)
+    val monthlyBudget by db.budgetDao().effectiveMonthlyBudget(yearMonth).collectAsState(initial = null)
     val needsReviewRows by db.rawNotificationDao().needsReview().collectAsState(initial = emptyList())
     val monthRows by db.transactionDao().filteredWithSource(
         categoryIds = emptyList(),

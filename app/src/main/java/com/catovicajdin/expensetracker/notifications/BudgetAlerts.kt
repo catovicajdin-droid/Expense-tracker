@@ -8,6 +8,8 @@ import com.catovicajdin.expensetracker.Constants
 import com.catovicajdin.expensetracker.R
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
+import com.catovicajdin.expensetracker.data.effectiveCategoryBudgets
+import com.catovicajdin.expensetracker.data.effectiveMonthlyBudget
 import com.catovicajdin.expensetracker.data.entity.BudgetAlertEntity
 import kotlinx.coroutines.flow.first
 
@@ -30,7 +32,7 @@ object BudgetAlerts {
     suspend fun checkOverall(context: Context) {
         val db = AppDatabase.get(context)
         val yearMonth = MonthRange.current()
-        val budget = db.budgetDao().monthlyBudgetFlow(yearMonth).first() ?: return
+        val budget = db.budgetDao().effectiveMonthlyBudget(yearMonth).first() ?: return
         if (budget.totalBudget <= 0.0) return
 
         val (from, to) = MonthRange.millisRange(yearMonth)
@@ -43,7 +45,7 @@ object BudgetAlerts {
     suspend fun checkCategory(context: Context, categoryId: Long) {
         val db = AppDatabase.get(context)
         val yearMonth = MonthRange.current()
-        val budget = db.budgetDao().categoryBudgetsFlow(yearMonth).first().find { it.categoryId == categoryId }
+        val budget = db.budgetDao().effectiveCategoryBudgets(yearMonth).first().find { it.categoryId == categoryId }
             ?: return
         if (budget.amount <= 0.0) return
 

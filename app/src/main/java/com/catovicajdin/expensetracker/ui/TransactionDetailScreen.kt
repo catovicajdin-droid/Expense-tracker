@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
+import com.catovicajdin.expensetracker.data.effectiveCategoryBudgets
 import com.catovicajdin.expensetracker.data.TransactionRow
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
@@ -67,7 +68,7 @@ fun TransactionDetailScreen(
     val yearMonth = remember { MonthRange.current() }
     val range = remember { MonthRange.millisRange(yearMonth) }
     val categoryTotals by db.transactionDao().categoryTotals(range.first, range.second).collectAsState(initial = emptyList())
-    val categoryBudgets by db.budgetDao().categoryBudgetsFlow(yearMonth).collectAsState(initial = emptyList())
+    val categoryBudgets by db.budgetDao().effectiveCategoryBudgets(yearMonth).collectAsState(initial = emptyList())
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
 
     val transaction = row?.transaction

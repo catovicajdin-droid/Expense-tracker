@@ -38,6 +38,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
+import com.catovicajdin.expensetracker.data.effectiveCategoryBudgets
+import com.catovicajdin.expensetracker.data.effectiveMonthlyBudget
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
@@ -59,8 +61,8 @@ fun BudgetDashboardScreen(
     val range = remember { MonthRange.millisRange(yearMonth) }
 
     val categories by db.categoryDao().all().collectAsState(initial = emptyList())
-    val monthlyBudget by db.budgetDao().monthlyBudgetFlow(yearMonth).collectAsState(initial = null)
-    val categoryBudgets by db.budgetDao().categoryBudgetsFlow(yearMonth).collectAsState(initial = emptyList())
+    val monthlyBudget by db.budgetDao().effectiveMonthlyBudget(yearMonth).collectAsState(initial = null)
+    val categoryBudgets by db.budgetDao().effectiveCategoryBudgets(yearMonth).collectAsState(initial = emptyList())
     val categoryTotals by db.transactionDao().categoryTotals(range.first, range.second).collectAsState(initial = emptyList())
     val totalSpent by db.transactionDao().totalSpent(range.first, range.second).collectAsState(initial = 0.0)
 

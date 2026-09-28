@@ -36,8 +36,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
+import com.catovicajdin.expensetracker.data.effectiveCategoryBudgets
+import com.catovicajdin.expensetracker.data.effectiveMonthlyBudget
 import com.catovicajdin.expensetracker.data.StatementImporter
-import com.catovicajdin.expensetracker.data.entity.CategoryBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.MonthlyBudgetEntity
 import com.catovicajdin.expensetracker.data.parseAmountInput
@@ -61,8 +62,8 @@ fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
     val range = remember(yearMonth) { MonthRange.millisRange(yearMonth) }
 
     val categories by db.categoryDao().all().collectAsState(initial = emptyList())
-    val monthlyBudget by db.budgetDao().monthlyBudgetFlow(yearMonth).collectAsState(initial = null)
-    val categoryBudgets by db.budgetDao().categoryBudgetsFlow(yearMonth).collectAsState(initial = emptyList())
+    val monthlyBudget by db.budgetDao().effectiveMonthlyBudget(yearMonth).collectAsState(initial = null)
+    val categoryBudgets by db.budgetDao().effectiveCategoryBudgets(yearMonth).collectAsState(initial = emptyList())
     val categoryTotals by db.transactionDao().categoryTotals(range.first, range.second).collectAsState(initial = emptyList())
     val totalSpent by db.transactionDao().totalSpent(range.first, range.second).collectAsState(initial = 0.0)
 
@@ -144,7 +145,7 @@ fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
                             suggestion = suggestedCategoryBudgets[category.id],
                             onSave = { amount ->
                                 scope.launch {
-                                    db.budgetDao().setCategoryBudget(CategoryBudgetEntity(yearMonth, category.id, amount))
+                                    db.budgetDao().setCategoryBudgetMaterializing(yearMonth, category.id, amount)
                                     BudgetAlerts.checkCategory(context, category.id)
                                 }
                             },
