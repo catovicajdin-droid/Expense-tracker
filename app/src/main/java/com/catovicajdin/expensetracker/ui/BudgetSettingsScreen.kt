@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.MonthRange
+import com.catovicajdin.expensetracker.data.StatementImporter
 import com.catovicajdin.expensetracker.data.entity.CategoryBudgetEntity
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.MonthlyBudgetEntity
@@ -82,6 +83,8 @@ fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
     // A view preference for this screen alone - the dashboard keeps its own, and neither writes
     // anything back, so switching here can't disturb the other.
     var sortOption by remember { mutableStateOf(BudgetSort.ALPHABETICAL) }
+    var importing by remember { mutableStateOf(false) }
+    var importStatus by remember { mutableStateOf<String?>(null) }
     val sortedCategories = remember(categories, spentByCategory, budgetByCategory, sortOption) {
         categories.sortedForBudget(
             sortOption,
@@ -166,6 +169,41 @@ fun BudgetSettingsScreen(onBack: () -> Unit, onOpenCategories: () -> Unit) {
                             "${categories.size} →",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            item {
+                ModernistCard {
+                    SectionLabel("Import statement")
+                    Text(
+                        importStatus ?: "Adds August 2026 from the bank statement - spending from " +
+                            "before the app was capturing notifications.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                    TextButton(
+                        onClick = {
+                            importing = true
+                            scope.launch {
+                                val result = StatementImporter.import(context, "statement-2026-08.json")
+                                importStatus = when {
+                                    result.alreadyPresent -> "Already imported - nothing added."
+                                    else -> "Imported ${result.imported} transactions."
+                                }
+                                importing = false
+                            }
+                        },
+                        enabled = !importing,
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.padding(top = 8.dp),
+                    ) {
+                        Text(
+                            if (importing) "Importing…" else "Import August 2026",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.secondary,
                         )
                     }
                 }

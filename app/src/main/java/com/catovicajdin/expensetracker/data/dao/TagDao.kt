@@ -16,6 +16,10 @@ interface TagDao {
     @Query("SELECT * FROM tags ORDER BY name")
     fun all(): Flow<List<TagEntity>>
 
+    /** One-shot read for callers that aren't observing - all() is a Flow and never completes. */
+    @Query("SELECT * FROM tags ORDER BY name")
+    suspend fun allOnce(): List<TagEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(tag: TagEntity): Long
 

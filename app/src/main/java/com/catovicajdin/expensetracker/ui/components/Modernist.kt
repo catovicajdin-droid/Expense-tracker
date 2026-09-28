@@ -71,8 +71,10 @@ fun CategoryIconBadge(category: CategoryEntity?, modifier: Modifier = Modifier, 
 fun formatAmount(amount: Double): String = "%.2f".format(amount)
 
 /** Maps a raw_notifications.packageName to the short label the design shows next to a transaction. */
-fun sourceLabel(packageName: String): String = when (packageName) {
-    "manual" -> "Manual"
-    com.catovicajdin.expensetracker.Constants.INTESA_PACKAGE_NAME -> "Intesa"
+fun sourceLabel(packageName: String): String = when {
+    packageName == "manual" -> "Manual"
+    // Each imported statement carries its own source ("statement:2026-08"), so match the prefix.
+    packageName.startsWith("statement") -> "Statement"
+    packageName == com.catovicajdin.expensetracker.Constants.INTESA_PACKAGE_NAME -> "Intesa"
     else -> packageName
 }

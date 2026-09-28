@@ -20,6 +20,10 @@ interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY name COLLATE NOCASE")
     fun all(): Flow<List<CategoryEntity>>
 
+    /** One-shot read for callers that aren't observing - all() is a Flow and never completes. */
+    @Query("SELECT * FROM categories ORDER BY name COLLATE NOCASE")
+    suspend fun allOnce(): List<CategoryEntity>
+
     @Query("SELECT * FROM categories WHERE id = :id")
     suspend fun byId(id: Long): CategoryEntity?
 

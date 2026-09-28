@@ -39,6 +39,10 @@ interface RawNotificationDao {
         toMillis: Long,
     ): Boolean
 
+    /** Guards statement imports: a source that already has rows has already been imported. */
+    @Query("SELECT COUNT(*) FROM raw_notifications WHERE packageName = :packageName")
+    suspend fun countForPackage(packageName: String): Int
+
     @Query("UPDATE raw_notifications SET parseStatus = :status WHERE id = :id")
     suspend fun updateStatus(id: Long, status: String)
 }
