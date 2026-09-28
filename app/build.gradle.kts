@@ -52,6 +52,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
 
+    // Reads bank statements on the device. Apache 2.0, and it makes no network calls of its own.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")

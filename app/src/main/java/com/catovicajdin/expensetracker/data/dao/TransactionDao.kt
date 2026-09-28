@@ -188,4 +188,27 @@ interface TransactionDao {
     /** Leaves the originating raw_notifications rows intact, same as [delete]. */
     @Query("DELETE FROM transactions WHERE id IN (:ids)")
     suspend fun deleteAll(ids: List<Long>)
+
+    /** Everything posted in a window, for checking an import against transactions already recorded. */
+    @Query("SELECT * FROM transactions WHERE postedAt BETWEEN :from AND :to")
+    suspend fun betweenOnce(from: Long, to: Long): List<TransactionEntity>
+
+    /** What an import should record its amounts in, taken from what is already here. */
+    @Query("SELECT currency FROM transactions ORDER BY postedAt DESC LIMIT 1")
+    suspend fun mostRecentCurrency(): String?
+
+    /**
+     * The category last given to a transaction whose source text mentions this merchant. Statement
+     * rows keep their line in raw_notifications, so importing one month teaches the next one - and a
+     * bank that names the merchant in its notifications feeds the same suggestion.
+     */
+    @Query(
+        """
+        SELECT t.categoryId FROM transactions t
+        JOIN raw_notifications r ON r.id = t.rawNotificationId
+        WHERE t.categoryId IS NOT NULL AND UPPER(r.body) LIKE '%' || :merchant || '%'
+        ORDER BY t.postedAt DESC LIMIT 1
+        """
+    )
+    suspend fun suggestedCategoryForDescription(merchant: String): Long?
 }
