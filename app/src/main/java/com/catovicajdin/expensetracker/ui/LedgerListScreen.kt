@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,10 +45,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.TransactionRow
+import com.catovicajdin.expensetracker.data.entity.CategoryEntity
+import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.Divider2
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
+import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import com.catovicajdin.expensetracker.ui.components.formatAmount
 import com.catovicajdin.expensetracker.ui.components.sourceLabel
 import kotlinx.coroutines.launch
@@ -103,8 +109,7 @@ fun LedgerListScreen(
 
     // Long-press a row to start selecting; an empty set means selection mode is off.
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
-    var showBulkCategory by remember { mutableStateOf(false) }
-    var showBulkTags by remember { mutableStateOf(false) }
+    var showBulkEdit by remember { mutableStateOf(false) }
 
     // Selecting rows and then narrowing the filter would otherwise leave invisible rows selected and
     // silently included in the next bulk edit. Keep the selection to what's actually on screen.
@@ -170,26 +175,15 @@ fun LedgerListScreen(
                         Text("All", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = { showBulkCategory = true },
-                        shape = MaterialTheme.shapes.small,
-                        colors = ButtonDefaults.textButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Category", style = MaterialTheme.typography.labelLarge) }
-                    TextButton(
-                        onClick = { showBulkTags = true },
-                        shape = MaterialTheme.shapes.small,
-                        colors = ButtonDefaults.textButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Tags", style = MaterialTheme.typography.labelLarge) }
-                }
+                TextButton(
+                    onClick = { showBulkEdit = true },
+                    shape = MaterialTheme.shapes.small,
+                    colors = ButtonDefaults.textButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) { Text("Edit category and tags", style = MaterialTheme.typography.labelLarge) }
             }
         }
 
@@ -242,109 +236,165 @@ fun LedgerListScreen(
         }
     }
 
-    if (showBulkCategory) {
-        val count = selectedIds.size
-        AlertDialog(
-            onDismissRequest = { showBulkCategory = false },
-            title = { Text("Category for $count transaction${if (count == 1) "" else "s"}") },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    CategoryOption(
-                        name = "Uncategorized",
-                        category = null,
-                        selected = false,
-                        onClick = {
-                            applyBulk { ids -> db.transactionDao().assignCategoryToAll(ids, null) }
-                            showBulkCategory = false
-                        },
-                    )
-                    categories.forEach { category ->
-                        CategoryOption(
-                            name = category.name,
-                            category = category,
-                            selected = false,
-                            onClick = {
-                                applyBulk { ids ->
-                                    db.transactionDao().assignCategoryToAll(ids, category.id)
-                                    BudgetAlerts.checkCategory(context, category.id)
-                                }
-                                showBulkCategory = false
-                            },
-                        )
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { showBulkCategory = false }) { Text("Cancel") } },
-        )
-    }
-
-    if (showBulkTags) {
-        BulkTagDialog(
+    if (showBulkEdit) {
+        BulkEditDialog(
             count = selectedIds.size,
+            categories = categories,
             allTags = tags,
-            onDismiss = { showBulkTags = false },
-            onApply = { tagIds, add ->
+            onDismiss = { showBulkEdit = false },
+            onApply = { categoryChange, tagAdds, tagRemovals, newTagNames ->
                 applyBulk { ids ->
-                    tagIds.forEach { tagId ->
-                        if (add) db.tagDao().addTagToAll(ids, tagId) else db.tagDao().removeTagFromAll(ids, tagId)
+                    if (categoryChange is BulkCategory.Assign) {
+                        db.transactionDao().assignCategoryToAll(ids, categoryChange.categoryId)
+                        categoryChange.categoryId?.let { BudgetAlerts.checkCategory(context, it) }
                     }
+                    val created = newTagNames.map { db.tagDao().getOrCreate(it) }
+                    (tagAdds + created).forEach { db.tagDao().addTagToAll(ids, it) }
+                    tagRemovals.forEach { db.tagDao().removeTagFromAll(ids, it) }
                 }
-                showBulkTags = false
+                showBulkEdit = false
             },
         )
     }
 }
 
+/** Whether the selection's category is being left alone, or set to something (null = Uncategorized). */
+private sealed interface BulkCategory {
+    data object Unchanged : BulkCategory
+    data class Assign(val categoryId: Long?) : BulkCategory
+}
+
+/** Unchanged, or being added to / removed from every transaction in the selection. */
+private enum class TagAction { ADD, REMOVE }
+
 /**
- * Add or remove, never replace: each transaction in the selection has its own tags, so applying one
- * list to all of them would silently drop the others.
+ * Category and tags in one pass, because applying them separately doesn't survive a filtered ledger:
+ * recategorizing a selection while filtered to the old category drops every row out of the list, and
+ * with them the selection, before the tags can be applied. One apply, one write, nothing to lose.
+ *
+ * Tags are added or removed, never replaced - each transaction in the selection has its own, and
+ * applying one list wholesale would silently drop the rest. Category is a straight assignment, since
+ * there is only ever one to lose.
  */
 @Composable
-private fun BulkTagDialog(
+private fun BulkEditDialog(
     count: Int,
-    allTags: List<com.catovicajdin.expensetracker.data.entity.TagEntity>,
+    categories: List<CategoryEntity>,
+    allTags: List<TagEntity>,
     onDismiss: () -> Unit,
-    onApply: (tagIds: Set<Long>, add: Boolean) -> Unit,
+    onApply: (BulkCategory, tagAdds: Set<Long>, tagRemovals: Set<Long>, newTagNames: List<String>) -> Unit,
 ) {
-    var picked by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var category by remember { mutableStateOf<BulkCategory>(BulkCategory.Unchanged) }
+    var tagActions by remember { mutableStateOf<Map<Long, TagAction>>(emptyMap()) }
+    var newTagText by remember { mutableStateOf("") }
+
+    val newTagNames = parseTagNames(newTagText)
+    val changesSomething = category is BulkCategory.Assign || tagActions.isNotEmpty() || newTagNames.isNotEmpty()
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tags for $count transaction${if (count == 1) "" else "s"}") },
+        title = { Text("Edit $count transaction${if (count == 1) "" else "s"}") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                if (allTags.isEmpty()) {
-                    Text("No tags yet - add one from a transaction first.", style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    allTags.forEach { tag ->
-                        val isPicked = picked.contains(tag.id)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { picked = if (isPicked) picked - tag.id else picked + tag.id }
-                                .padding(vertical = 10.dp),
-                        ) {
-                            Text(if (isPicked) "☑" else "☐", style = MaterialTheme.typography.titleMedium)
+                SectionLabel("Category", modifier = Modifier.padding(bottom = 10.dp))
+                LazyRow {
+                    item {
+                        CategoryOption(
+                            name = "Leave as is",
+                            category = null,
+                            selected = category is BulkCategory.Unchanged,
+                            onClick = { category = BulkCategory.Unchanged },
+                        )
+                    }
+                    item {
+                        CategoryOption(
+                            name = "Uncategorized",
+                            category = null,
+                            selected = category == BulkCategory.Assign(null),
+                            onClick = { category = BulkCategory.Assign(null) },
+                        )
+                    }
+                    items(categories) { option ->
+                        CategoryOption(
+                            name = option.name,
+                            category = option,
+                            selected = category == BulkCategory.Assign(option.id),
+                            onClick = { category = BulkCategory.Assign(option.id) },
+                        )
+                    }
+                }
+
+                SectionLabel("Tags", modifier = Modifier.padding(top = 20.dp))
+                Text(
+                    "Tap to add, tap again to remove, once more to leave alone.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 6.dp),
+                )
+                allTags.forEach { tag ->
+                    val action = tagActions[tag.id]
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                tagActions = when (action) {
+                                    null -> tagActions + (tag.id to TagAction.ADD)
+                                    TagAction.ADD -> tagActions + (tag.id to TagAction.REMOVE)
+                                    TagAction.REMOVE -> tagActions - tag.id
+                                }
+                            }
+                            .padding(vertical = 10.dp),
+                    ) {
+                        Text(
+                            when (action) {
+                                null -> "☐"
+                                TagAction.ADD -> "+"
+                                TagAction.REMOVE -> "−"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (action == TagAction.REMOVE) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "#${tag.name}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f).padding(start = 12.dp),
+                        )
+                        if (action != null) {
                             Text(
-                                "#${tag.name}",
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.padding(start = 12.dp),
+                                if (action == TagAction.ADD) "add" else "remove",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (action == TagAction.ADD) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.secondary,
                             )
                         }
                     }
                 }
+                TextField(
+                    value = newTagText,
+                    onValueChange = { newTagText = it },
+                    placeholder = { Text("New tag, comma separated") },
+                    colors = TextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                    ),
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
             }
         },
         confirmButton = {
-            TextButton(enabled = picked.isNotEmpty(), onClick = { onApply(picked, true) }) { Text("Add") }
+            TextButton(
+                enabled = changesSomething,
+                onClick = {
+                    val adds = tagActions.filterValues { it == TagAction.ADD }.keys
+                    val removals = tagActions.filterValues { it == TagAction.REMOVE }.keys
+                    onApply(category, adds, removals, newTagNames)
+                },
+            ) { Text("Apply") }
         },
-        dismissButton = {
-            TextButton(enabled = picked.isNotEmpty(), onClick = { onApply(picked, false) }) {
-                Text("Remove", color = MaterialTheme.colorScheme.secondary)
-            }
-        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
