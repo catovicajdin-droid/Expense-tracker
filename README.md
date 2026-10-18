@@ -74,6 +74,19 @@ credentials, no scraping, no server involved.
    only settable from system Settings — the app deep-links you there).
 4. Trigger a card transaction and confirm it shows up categorized end to end.
 
+## Testing the notification flow without a real transaction
+
+Debug builds include a receiver that fakes a bank push (it isn't in release builds). With the phone
+connected over adb:
+
+```
+# A fake transaction through the real ingest path: adds a row (delete it after) and notifies.
+adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker --es amount 12,50
+
+# Re-notify an existing transaction instead; writes nothing.
+adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker --el transaction_id 42
+```
+
 ## Known limitations (by design, for now)
 
 - No merchant name — the notification only carries amount + running balance, so categorization is
