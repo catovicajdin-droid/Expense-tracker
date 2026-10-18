@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +29,16 @@ fun AppRoot(
             // Shared across Home's tag taps, Budget's category taps, and the Filters screen itself -
             // set explicitly by whichever action means "show me this slice of the ledger."
             var filter by remember { mutableStateOf(TransactionFilter()) }
+
+            // Filters only live while the ledger (and the screens opened from it) is showing;
+            // stepping anywhere else clears them so the next visit starts unfiltered. Keyed on the
+            // destination, so a budget category tap - which sets a filter and then opens the
+            // ledger - keeps its filter.
+            LaunchedEffect(screen) {
+                if (screen !is Screen.Ledger && screen !is Screen.Filters && screen !is Screen.Detail) {
+                    filter = TransactionFilter()
+                }
+            }
 
             when (screen) {
                 is Screen.Home -> HomeScreen(
