@@ -21,14 +21,20 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +50,7 @@ import com.catovicajdin.expensetracker.ui.components.CategoryIconBadge
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import com.catovicajdin.expensetracker.ui.components.formatAmount
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -84,130 +91,150 @@ fun HomeScreen(
     val recent = remember(monthRows) { monthRows.take(8).map { it.transaction } }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(14.dp, 16.dp, 14.dp, 0.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        ModernistCard(contentPadding = PaddingValues(22.dp, 24.dp, 22.dp, 22.dp)) {
-            SectionLabel("Spent this month")
-            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 10.dp)) {
-                Text(formatAmount(spent), style = MaterialTheme.typography.headlineLarge)
-                Text(" BAM", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-            ) {
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surface) {
                 Text(
-                    "${MonthRange.displayLabel(yearMonth)} · ${deltaText(spent, lastSpent)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
+                    "Menu",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(28.dp, 24.dp, 28.dp, 16.dp),
                 )
-                Row {
-                    TextButton(onClick = { yearMonth = MonthRange.previous(yearMonth) }, contentPadding = PaddingValues(6.dp, 0.dp)) {
-                        Text("‹", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
-                    }
-                    TextButton(onClick = { yearMonth = MonthRange.next(yearMonth) }, contentPadding = PaddingValues(6.dp, 0.dp)) {
-                        Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
-                    }
+                MenuItem("Ledger", onClick = onOpenLedger)
+                MenuItem("Budget", onClick = onOpenBudget)
+                if (needsReviewRows.isNotEmpty()) {
+                    MenuItem("Needs review · ${needsReviewRows.size}", onClick = onOpenReview)
                 }
+                MenuItem("Settings", onClick = onOpenSettings)
             }
-
-            val budget = monthlyBudget?.totalBudget
-            if (budget != null && budget > 0.0) {
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(vertical = 18.dp).background(MaterialTheme.colorScheme.outline))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                    SectionLabel("Budget ${formatAmount(budget)}")
+        },
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(14.dp, 16.dp, 14.dp, 0.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            TextButton(
+                onClick = { scope.launch { drawerState.open() } },
+                contentPadding = PaddingValues(8.dp, 0.dp),
+                modifier = Modifier.height(36.dp),
+            ) {
+                Text("☰", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+            }
+            ModernistCard(contentPadding = PaddingValues(22.dp, 24.dp, 22.dp, 22.dp)) {
+                SectionLabel("Spent this month")
+                Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 10.dp)) {
+                    Text(formatAmount(spent), style = MaterialTheme.typography.headlineLarge)
+                    Text(" BAM", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                ) {
                     Text(
-                        "${formatAmount((budget - spent).coerceAtLeast(0.0))} left",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.secondary,
+                        "${MonthRange.displayLabel(yearMonth)} · ${deltaText(spent, lastSpent)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
                     )
+                    Row {
+                        TextButton(onClick = { yearMonth = MonthRange.previous(yearMonth) }, contentPadding = PaddingValues(6.dp, 0.dp)) {
+                            Text("‹", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        TextButton(onClick = { yearMonth = MonthRange.next(yearMonth) }, contentPadding = PaddingValues(6.dp, 0.dp)) {
+                            Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
                 }
-                BudgetBar(fraction = (spent / budget).toFloat(), height = 10.dp, modifier = Modifier.padding(top = 12.dp))
-            }
-        }
 
-        if (needsReviewRows.isNotEmpty()) {
+                val budget = monthlyBudget?.totalBudget
+                if (budget != null && budget > 0.0) {
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(vertical = 18.dp).background(MaterialTheme.colorScheme.outline))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                        SectionLabel("Budget ${formatAmount(budget)}")
+                        Text(
+                            "${formatAmount((budget - spent).coerceAtLeast(0.0))} left",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                    BudgetBar(fraction = (spent / budget).toFloat(), height = 10.dp, modifier = Modifier.padding(top = 12.dp))
+                }
+            }
+
+            if (needsReviewRows.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenReview() },
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                        Box(modifier = Modifier.width(3.dp).fillMaxHeight().background(MaterialTheme.colorScheme.secondary))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.weight(1f).padding(20.dp, 16.dp),
+                        ) {
+                            Text("Needs review · ${needsReviewRows.size}", style = MaterialTheme.typography.bodyLarge)
+                            Text("Open →", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
             Card(
-                modifier = Modifier.fillMaxWidth().clickable { onOpenReview() },
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
             ) {
-                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                    Box(modifier = Modifier.width(3.dp).fillMaxHeight().background(MaterialTheme.colorScheme.secondary))
+                Column(modifier = Modifier.fillMaxSize()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.weight(1f).padding(20.dp, 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(20.dp, 16.dp, 12.dp, 10.dp),
                     ) {
-                        Text("Needs review · ${needsReviewRows.size}", style = MaterialTheme.typography.bodyLarge)
-                        Text("Open →", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SectionLabel("Recent")
+                        TextButton(onClick = onOpenLedger) {
+                            Text("All transactions →", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(recent) { transaction ->
+                            RecentRow(
+                                transaction = transaction,
+                                category = categories.find { it.id == transaction.categoryId },
+                                dateFormat = dateFormat,
+                                onClick = { onOpenDetail(transaction.id) },
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        Card(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth().padding(20.dp, 16.dp, 12.dp, 10.dp),
-                ) {
-                    SectionLabel("Recent")
-                    TextButton(onClick = onOpenLedger) {
-                        Text("All transactions →", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(recent) { transaction ->
-                        RecentRow(
-                            transaction = transaction,
-                            category = categories.find { it.id == transaction.categoryId },
-                            dateFormat = dateFormat,
-                            onClick = { onOpenDetail(transaction.id) },
-                        )
-                    }
-                }
-            }
-        }
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = onOpenLedger,
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onBackground, contentColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.weight(1f),
-            ) { Text("Ledger") }
-            Button(
-                onClick = onOpenBudget,
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
-                modifier = Modifier.weight(1f),
-            ) { Text("Budget") }
             Button(
                 onClick = onOpenAdd,
                 shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
-                modifier = Modifier.weight(1f),
-            ) { Text("+ Add") }
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onBackground, contentColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("+ Add transaction") }
+            Box(modifier = Modifier.height(12.dp))
         }
-        TextButton(onClick = onOpenSettings, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text("Settings", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Box(modifier = Modifier.height(4.dp))
     }
+}
+
+@Composable
+private fun MenuItem(label: String, onClick: () -> Unit) {
+    NavigationDrawerItem(
+        label = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+        selected = false,
+        onClick = onClick,
+        modifier = Modifier.padding(horizontal = 12.dp),
+    )
 }
 
 @Composable
