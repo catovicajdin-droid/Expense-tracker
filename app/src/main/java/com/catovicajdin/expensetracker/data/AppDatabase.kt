@@ -193,12 +193,20 @@ abstract class AppDatabase : RoomDatabase() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
                 val defaults = listOf(
-                    CategorySeed("Groceries", true, 0),
-                    CategorySeed("Bills", true, 1),
-                    CategorySeed("Food", true, 2),
-                    CategorySeed("Transport", false, 3),
-                    CategorySeed("Subscriptions", false, 4),
-                    CategorySeed("Misc", false, 5),
+                    CategorySeed("Phone Bill", false, 0),
+                    CategorySeed("Misc", false, 1),
+                    CategorySeed("Food ordering", true, 2),
+                    CategorySeed("Subscriptions", false, 3),
+                    CategorySeed("Padel", false, 4),
+                    CategorySeed("Groceries", true, 5),
+                    CategorySeed("Coffee", true, 6),
+                    CategorySeed("Gas Bill", false, 7),
+                    CategorySeed("Parents", false, 8),
+                    CategorySeed("Donating", false, 9),
+                    CategorySeed("Bills", false, 10),
+                    CategorySeed("Date nights", false, 11),
+                    CategorySeed("Pets", false, 12),
+                    CategorySeed("DM", false, 13),
                 )
                 defaults.forEach { seed ->
                     val values = ContentValues().apply {
