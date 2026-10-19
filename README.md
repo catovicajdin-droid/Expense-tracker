@@ -7,7 +7,7 @@ credentials, no scraping, no server involved.
 ## How it works
 
 1. `IntesaNotificationListenerService` listens for notifications posted by the bank apps picked under
-   **Edit budgets → Banks** (any combination; Intesa alone by default). The class keeps its old name
+   **Settings → Banks to read** (any combination; Intesa alone by default). The class keeps its old name
    because notification access is granted per component, and renaming it would revoke that access.
    Each bank has its own parser (`IntesaParser`, `UniCreditParser`, `RaiffeisenParser`) behind the
    `Bank` enum. Raiffeisen and UniCredit pushes carry no balance, so for them only a repeat within two

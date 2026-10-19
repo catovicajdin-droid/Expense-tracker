@@ -6,6 +6,7 @@ sealed class Screen {
     data object Filters : Screen()
     data object BudgetDashboard : Screen()
     data object BudgetSettings : Screen()
+    data object Settings : Screen()
     data object Categories : Screen()
     data object Duplicates : Screen()
     data object ImportStatement : Screen()

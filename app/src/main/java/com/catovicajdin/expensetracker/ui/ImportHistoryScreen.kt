@@ -60,7 +60,7 @@ fun ImportHistoryScreen(onBack: () -> Unit) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp, 2.dp)) {
             TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
-                Text("← Edit budgets", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("← Settings", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text("Imports", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 14.dp))
         }

@@ -54,6 +54,7 @@ fun HomeScreen(
     onOpenAdd: () -> Unit,
     onOpenReview: () -> Unit,
     onOpenDetail: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val context = LocalContext.current
     val db = AppDatabase.get(context)
@@ -202,7 +203,10 @@ fun HomeScreen(
                 modifier = Modifier.weight(1f),
             ) { Text("+ Add") }
         }
-        Box(modifier = Modifier.height(12.dp))
+        TextButton(onClick = onOpenSettings, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text("Settings", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Box(modifier = Modifier.height(4.dp))
     }
 }
 
