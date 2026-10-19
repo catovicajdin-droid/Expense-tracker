@@ -23,5 +23,9 @@ object CategoryColors {
         "Date nights" to "#cf1fac",
         "Pets" to "#c51d71",
         "DM" to "#ba1c3b",
+        // New-install defaults since the list was cut to six general categories; they reuse the
+        // colors of the personal categories they replaced, so the palette itself is unchanged.
+        "Food" to "#838d15",
+        "Transport" to "#385ae1",
     )
 }
