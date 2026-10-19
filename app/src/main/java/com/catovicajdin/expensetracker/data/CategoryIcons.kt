@@ -21,7 +21,5 @@ object CategoryIcons {
         "Date nights" to "💕",
         "Pets" to "🐾",
         "DM" to "🧴",
-        "Food" to "🍔",
-        "Transport" to "🚗",
     )
 }
