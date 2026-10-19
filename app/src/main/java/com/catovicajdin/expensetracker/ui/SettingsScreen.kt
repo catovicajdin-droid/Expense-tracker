@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.backup.DataTransfer
 import com.catovicajdin.expensetracker.notifications.BankPreferences
+import com.catovicajdin.expensetracker.notifications.TrackingMode
+import com.catovicajdin.expensetracker.notifications.TrackingPreferences
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
 import kotlinx.coroutines.launch
@@ -62,6 +64,7 @@ fun SettingsScreen(
 
     var enabledBanks by remember { mutableStateOf(BankPreferences.enabled(context)) }
     var showBankDialog by remember { mutableStateOf(false) }
+    var trackingMode by remember { mutableStateOf(TrackingPreferences.mode(context)) }
     var pendingRestore by remember { mutableStateOf<DataTransfer.RestoreCheck.Ok?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -107,6 +110,14 @@ fun SettingsScreen(
             item {
                 ModernistCard(contentPadding = PaddingValues(0.dp)) {
                     SettingsGroupLabel("Banks")
+                    SettingsRow(
+                        label = "Tracking",
+                        value = if (trackingMode == TrackingMode.AUTOMATIC) "Automatic" else "Manual",
+                        onClick = {
+                            trackingMode = if (trackingMode == TrackingMode.AUTOMATIC) TrackingMode.MANUAL else TrackingMode.AUTOMATIC
+                            TrackingPreferences.setMode(context, trackingMode)
+                        },
+                    )
                     SettingsRow(
                         label = "Banks to read",
                         value = enabledBanks.sortedBy { it.ordinal }.joinToString { it.displayName },

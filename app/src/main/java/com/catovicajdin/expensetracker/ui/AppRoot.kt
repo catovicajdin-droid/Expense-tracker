@@ -10,6 +10,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.catovicajdin.expensetracker.notifications.TrackingMode
+import com.catovicajdin.expensetracker.notifications.TrackingPreferences
 import com.catovicajdin.expensetracker.ui.theme.ExpenseTrackerTheme
 
 @Composable
@@ -21,8 +24,27 @@ fun AppRoot(
 ) {
     ExpenseTrackerTheme {
         Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            if (!isNotificationAccessGranted) {
-                OnboardingScreen(onRequestNotificationAccess = onRequestNotificationAccess)
+            val context = LocalContext.current
+            var welcomed by remember { mutableStateOf(TrackingPreferences.isDone(context)) }
+            if (!welcomed) {
+                WelcomeFlow(
+                    isNotificationAccessGranted = isNotificationAccessGranted,
+                    onRequestNotificationAccess = onRequestNotificationAccess,
+                    onFinished = { welcomed = true },
+                )
+                return@Surface
+            }
+
+            // Re-read on every navigation, so switching to manual in Settings applies on the way out.
+            var mode by remember(screen) { mutableStateOf(TrackingPreferences.mode(context)) }
+            if (mode == TrackingMode.AUTOMATIC && !isNotificationAccessGranted) {
+                OnboardingScreen(
+                    onRequestNotificationAccess = onRequestNotificationAccess,
+                    onTrackManually = {
+                        TrackingPreferences.setMode(context, TrackingMode.MANUAL)
+                        mode = TrackingMode.MANUAL
+                    },
+                )
                 return@Surface
             }
 

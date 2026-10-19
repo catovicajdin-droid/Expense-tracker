@@ -9,13 +9,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun OnboardingScreen(onRequestNotificationAccess: () -> Unit) {
+fun OnboardingScreen(onRequestNotificationAccess: () -> Unit, onTrackManually: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -27,7 +28,7 @@ fun OnboardingScreen(onRequestNotificationAccess: () -> Unit) {
             modifier = Modifier.padding(top = 16.dp),
         )
         Text(
-            "Expense Tracker reads transaction alerts from your bank app's notifications (Intesa, UniCredit or Raiffeisen) - nothing else. No bank credentials, no network calls, no data leaving your phone.",
+            "Automatic tracking is on, but notification access is off - it was never granted, or Android revoked it. Expense Tracker reads transaction alerts from your bank app's notifications (Intesa, UniCredit or Raiffeisen) - nothing else. No bank credentials, no network calls, no data leaving your phone.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 12.dp),
@@ -41,5 +42,8 @@ fun OnboardingScreen(onRequestNotificationAccess: () -> Unit) {
             ),
             modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
         ) { Text("Grant notification access") }
+        TextButton(onClick = onTrackManually, modifier = Modifier.fillMaxWidth()) {
+            Text("Track manually instead", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
