@@ -27,6 +27,7 @@ class IntesaNotificationListenerService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val bank = Bank.fromPackage(sbn.packageName) ?: return
+        if (TrackingPreferences.mode(applicationContext) == TrackingMode.MANUAL) return
         if (bank !in BankPreferences.enabled(applicationContext)) return
 
         // An app posting several notifications also posts a summary standing for the group, and it

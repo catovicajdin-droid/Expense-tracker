@@ -1,5 +1,8 @@
 package com.catovicajdin.expensetracker.ui
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -19,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,13 +32,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.catovicajdin.expensetracker.data.AppDatabase
+import com.catovicajdin.expensetracker.data.backup.DataTransfer
 import com.catovicajdin.expensetracker.notifications.BankPreferences
+import com.catovicajdin.expensetracker.notifications.TrackingMode
+import com.catovicajdin.expensetracker.notifications.TrackingPreferences
 import com.catovicajdin.expensetracker.ui.components.ModernistCard
 import com.catovicajdin.expensetracker.ui.components.SectionLabel
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Everything that configures the app rather than a month's numbers: which banks are read, the
- * category list, and getting statements in (and back out). Budget amounts stay on Edit budgets.
+ * category list, getting statements in, and getting your data out. Budget amounts stay on Edit budgets.
  */
 @Composable
 fun SettingsScreen(
@@ -52,6 +64,39 @@ fun SettingsScreen(
 
     var enabledBanks by remember { mutableStateOf(BankPreferences.enabled(context)) }
     var showBankDialog by remember { mutableStateOf(false) }
+    var trackingMode by remember { mutableStateOf(TrackingPreferences.mode(context)) }
+    var pendingRestore by remember { mutableStateOf<DataTransfer.RestoreCheck.Ok?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+
+    // Each runs once the user has picked where the file goes (or which file to read); a cancelled
+    // picker comes back null and does nothing.
+    val exportCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) scope.launch {
+            runCatching { DataTransfer.exportCsv(context, uri) }
+                .onSuccess { toast("Exported $it transactions.") }
+                .onFailure { toast("Export failed: ${it.message}") }
+        }
+    }
+    val backup = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri ->
+        if (uri != null) scope.launch {
+            runCatching { DataTransfer.backup(context, uri) }
+                .onSuccess { toast("Backup saved.") }
+                .onFailure { toast("Backup failed: ${it.message}") }
+        }
+    }
+    val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            when (val check = DataTransfer.checkBackup(context, uri)) {
+                is DataTransfer.RestoreCheck.Ok -> pendingRestore = check
+                is DataTransfer.RestoreCheck.Rejected -> toast(check.reason)
+            }
+        }
+    }
+    val today = remember { SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date()) }
 
     Column(modifier = Modifier.fillMaxSize().padding(14.dp, 16.dp, 14.dp, 0.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp, 2.dp)) {
@@ -65,6 +110,14 @@ fun SettingsScreen(
             item {
                 ModernistCard(contentPadding = PaddingValues(0.dp)) {
                     SettingsGroupLabel("Banks")
+                    SettingsRow(
+                        label = "Tracking",
+                        value = if (trackingMode == TrackingMode.AUTOMATIC) "Automatic" else "Manual",
+                        onClick = {
+                            trackingMode = if (trackingMode == TrackingMode.AUTOMATIC) TrackingMode.MANUAL else TrackingMode.AUTOMATIC
+                            TrackingPreferences.setMode(context, trackingMode)
+                        },
+                    )
                     SettingsRow(
                         label = "Banks to read",
                         value = enabledBanks.sortedBy { it.ordinal }.joinToString { it.displayName },
@@ -108,8 +161,49 @@ fun SettingsScreen(
                     Box(modifier = Modifier.height(4.dp))
                 }
             }
+            item {
+                ModernistCard(contentPadding = PaddingValues(0.dp)) {
+                    SettingsGroupLabel("Your data")
+                    SettingsRow(label = "Export transactions", value = "CSV", onClick = {
+                        exportCsv.launch("transactions-$today.csv")
+                    })
+                    SettingsRow(label = "Back up everything", value = "File", onClick = {
+                        backup.launch("expense-tracker-backup-$today.db")
+                    })
+                    SettingsRow(label = "Restore from a backup", value = "", onClick = {
+                        restore.launch(arrayOf("*/*"))
+                    })
+                    Box(modifier = Modifier.height(4.dp))
+                }
+            }
             item { Box(modifier = Modifier.height(4.dp)) }
         }
+    }
+
+    pendingRestore?.let { check ->
+        AlertDialog(
+            onDismissRequest = {
+                check.staged.delete()
+                pendingRestore = null
+            },
+            title = { Text("Restore this backup?") },
+            text = {
+                Text(
+                    "It holds ${check.transactionCount} transactions. Everything in the app now - " +
+                        "transactions, categories, budgets and tags - is replaced by the backup, and " +
+                        "the app restarts.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { DataTransfer.restore(context, check.staged) }) { Text("Replace and restart") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    check.staged.delete()
+                    pendingRestore = null
+                }) { Text("Cancel") }
+            },
+        )
     }
 
     if (showBankDialog) {

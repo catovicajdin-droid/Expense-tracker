@@ -25,6 +25,9 @@ import com.catovicajdin.expensetracker.data.entity.TagEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionTagCrossRef
 
+/** Bump with every new Migration; a backup from a newer schema than this cannot be restored. */
+const val DATABASE_VERSION = 5
+
 @Database(
     entities = [
         RawNotificationEntity::class,
@@ -36,7 +39,7 @@ import com.catovicajdin.expensetracker.data.entity.TransactionTagCrossRef
         TagEntity::class,
         TransactionTagCrossRef::class,
     ],
-    version = 5,
+    version = DATABASE_VERSION,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -49,12 +52,20 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile private var instance: AppDatabase? = null
 
+        const val FILE_NAME = "expense_tracker.db"
+
+        /** Closes and forgets the open database, so a restore can replace its file. */
+        fun close() = synchronized(this) {
+            instance?.close()
+            instance = null
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "expense_tracker.db",
+                    FILE_NAME,
                 )
                     .addCallback(SeedDefaultCategories)
                     // No destructive fallback from here on - schema changes now require a real

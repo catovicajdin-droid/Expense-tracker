@@ -60,6 +60,12 @@ credentials, no scraping, no server involved.
    covered by the fact that category color is never shown without its name and letter avatar
    alongside it. New installs get the palette from `CategoryColors.kt`; existing installs get it
    backfilled at startup by name (a plain data UPDATE, not a schema migration).
+10. **Settings → Your data** exports every transaction as a CSV (date, amount, category, tags,
+   source, details) for a spreadsheet, and backs up / restores the whole database as one file
+   (`DataTransfer`). A restore checks the file first, refuses one from a newer schema, then swaps it in
+   and restarts the app. Because debug builds are signed with a fresh key on every CI run, updating
+   one means uninstalling first: back up, reinstall, restore. The same file restores into the
+   paid-version build too.
 
 ## Before you build this
 
