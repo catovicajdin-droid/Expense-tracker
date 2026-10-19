@@ -68,7 +68,7 @@ fun CategoriesScreen(onBack: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
-                    Text("← Budget", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("← Settings", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text("Categories", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 14.dp))
             }

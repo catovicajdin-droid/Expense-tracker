@@ -47,6 +47,7 @@ fun AppRoot(
                     onOpenAdd = { onNavigate(Screen.AddTransaction()) },
                     onOpenReview = { onNavigate(Screen.NeedsReview) },
                     onOpenDetail = { id -> onNavigate(Screen.Detail(id)) },
+                    onOpenSettings = { onNavigate(Screen.Settings) },
                 )
                 is Screen.Ledger -> LedgerListScreen(
                     filter = filter,
@@ -73,22 +74,25 @@ fun AppRoot(
                 )
                 is Screen.BudgetSettings -> BudgetSettingsScreen(
                     onBack = { onNavigate(Screen.BudgetDashboard) },
+                )
+                is Screen.Settings -> SettingsScreen(
+                    onBack = { onNavigate(Screen.Home) },
                     onOpenCategories = { onNavigate(Screen.Categories) },
                     onOpenDuplicates = { onNavigate(Screen.Duplicates) },
                     onOpenImport = { onNavigate(Screen.ImportStatement) },
                     onOpenImportHistory = { onNavigate(Screen.ImportHistory) },
                 )
                 is Screen.Categories -> CategoriesScreen(
-                    onBack = { onNavigate(Screen.BudgetSettings) },
+                    onBack = { onNavigate(Screen.Settings) },
                 )
                 is Screen.Duplicates -> DuplicatesScreen(
-                    onBack = { onNavigate(Screen.BudgetSettings) },
+                    onBack = { onNavigate(Screen.Settings) },
                 )
                 is Screen.ImportHistory -> ImportHistoryScreen(
-                    onBack = { onNavigate(Screen.BudgetSettings) },
+                    onBack = { onNavigate(Screen.Settings) },
                 )
                 is Screen.ImportStatement -> ImportStatementScreen(
-                    onBack = { onNavigate(Screen.BudgetSettings) },
+                    onBack = { onNavigate(Screen.Settings) },
                     onImported = { onNavigate(Screen.BudgetDashboard) },
                 )
                 is Screen.NeedsReview -> NeedsReviewScreen(
