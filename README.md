@@ -87,13 +87,13 @@ connected over adb:
 
 ```
 # A fake transaction through the real ingest path: adds a row (delete it after) and notifies.
-adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker --es amount 12,50
+adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker.paid --es amount 12,50
 
 # Fake a UniCredit or Raiffeisen push instead (their amounts use a dot).
-adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker --es bank raiffeisen --es amount 12.50
+adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker.paid --es bank raiffeisen --es amount 12.50
 
 # Re-notify an existing transaction instead; writes nothing.
-adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker --el transaction_id 42
+adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker.paid --el transaction_id 42
 ```
 
 ## Known limitations (by design, for now)

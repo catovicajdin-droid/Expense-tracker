@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tells the paid-version test build apart from the personal app in the launcher. -->
+    <string name="app_name">Expense Tracker (paid)</string>
+</resources>

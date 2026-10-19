@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, paid-version]
   pull_request:
   workflow_dispatch:
 
@@ -36,8 +36,9 @@ jobs:
           name: expense-tracker-debug
           path: expense-tracker-debug.apk
 
-      # Main's latest build as a phone-friendly download link, replaced on every push.
-      - if: github.event_name != 'pull_request'
+      # Each branch's latest build as a phone-friendly download link, replaced on every push:
+      # main (the personal app) as latest-debug, paid-version as latest-paid-debug.
+      - if: github.event_name != 'pull_request' && github.ref_name == 'main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-debug
@@ -45,4 +46,14 @@ jobs:
           prerelease: true
           make_latest: false
           body: Debug build of ${{ github.sha }}. Download the APK below on the phone to install it.
+          files: expense-tracker-debug.apk
+
+      - if: github.event_name != 'pull_request' && github.ref_name == 'paid-version'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-paid-debug
+          name: Latest paid-version debug build
+          prerelease: true
+          make_latest: false
+          body: Debug build of the paid-version branch at ${{ github.sha }}. Installs next to the personal app as "Expense Tracker (paid)".
           files: expense-tracker-debug.apk

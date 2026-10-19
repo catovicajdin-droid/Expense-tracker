@@ -17,6 +17,11 @@ android {
     }
 
     buildTypes {
+        // The paid-version branch's test builds install next to the personal app on main instead of
+        // replacing it. Release builds keep the real id, which is what Play will publish.
+        debug {
+            applicationIdSuffix = ".paid"
+        }
         release {
             isMinifyEnabled = false
         }
