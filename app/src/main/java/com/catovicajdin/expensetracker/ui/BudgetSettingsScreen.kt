@@ -44,6 +44,7 @@ import com.catovicajdin.expensetracker.data.effectiveMonthlyBudget
 import com.catovicajdin.expensetracker.data.entity.CategoryEntity
 import com.catovicajdin.expensetracker.data.entity.MonthlyBudgetEntity
 import com.catovicajdin.expensetracker.data.parseAmountInput
+import com.catovicajdin.expensetracker.notifications.BankPreferences
 import com.catovicajdin.expensetracker.notifications.BudgetAlerts
 import com.catovicajdin.expensetracker.ui.charts.CategoryDonutChart
 import com.catovicajdin.expensetracker.ui.charts.DonutEntry
@@ -96,6 +97,9 @@ fun BudgetSettingsScreen(
     val monthsToShow = remember(monthsWithData, yearMonth) {
         (monthsWithData + yearMonth).distinct().sortedDescending()
     }
+
+    var enabledBanks by remember { mutableStateOf(BankPreferences.enabled(context)) }
+    var showBankDialog by remember { mutableStateOf(false) }
 
     // A view preference for this screen alone - the dashboard keeps its own, and neither writes
     // anything back, so switching here can't disturb the other.
@@ -182,6 +186,26 @@ fun BudgetSettingsScreen(
                         Text("Manage categories", style = MaterialTheme.typography.bodyLarge)
                         Text(
                             "${categories.size} →",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            item {
+                ModernistCard(contentPadding = PaddingValues(0.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showBankDialog = true }
+                            .padding(20.dp, 18.dp),
+                    ) {
+                        Text("Banks", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "${enabledBanks.sortedBy { it.ordinal }.joinToString { it.displayName }} →",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -291,6 +315,18 @@ fun BudgetSettingsScreen(
             }
             item { Box(modifier = Modifier.height(4.dp)) }
         }
+    }
+
+    if (showBankDialog) {
+        BankSelectionDialog(
+            enabled = enabledBanks,
+            onDismiss = { showBankDialog = false },
+            onSave = { banks ->
+                BankPreferences.setEnabled(context, banks)
+                enabledBanks = banks
+                showBankDialog = false
+            },
+        )
     }
 
 }

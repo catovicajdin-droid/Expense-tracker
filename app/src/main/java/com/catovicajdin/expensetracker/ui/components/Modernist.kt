@@ -75,6 +75,5 @@ fun sourceLabel(packageName: String): String = when {
     packageName == "manual" -> "Manual"
     // Each imported statement carries its own source ("statement:2026-08"), so match the prefix.
     packageName.startsWith("statement") -> "Statement"
-    packageName == com.catovicajdin.expensetracker.Constants.INTESA_PACKAGE_NAME -> "Intesa"
-    else -> packageName
+    else -> com.catovicajdin.expensetracker.notifications.Bank.fromPackage(packageName)?.displayName ?: packageName
 }

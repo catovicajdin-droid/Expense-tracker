@@ -1,15 +1,21 @@
 # Expense Tracker
 
-Android app that auto-tracks Intesa Sanpaolo BiH card transactions by reading the bank's own
-push notifications on-device, then lets you categorize each one with a single tap — no bank
+Android app that auto-tracks Intesa Sanpaolo, UniCredit (m-ba) and Raiffeisen (RMB) BiH card
+transactions by reading the bank's own push notifications on-device, then lets you categorize each one with a single tap — no bank
 credentials, no scraping, no server involved.
 
 ## How it works
 
-1. `IntesaNotificationListenerService` listens for notifications posted by the Intesa Mobile app.
+1. `IntesaNotificationListenerService` listens for notifications posted by the bank apps picked under
+   **Edit budgets → Banks** (any combination; Intesa alone by default). The class keeps its old name
+   because notification access is granted per component, and renaming it would revoke that access.
+   Each bank has its own parser (`IntesaParser`, `UniCreditParser`, `RaiffeisenParser`) behind the
+   `Bank` enum. Raiffeisen and UniCredit pushes carry no balance, so for them only a repeat within two
+   minutes counts as a duplicate, and a foreign-currency debit (e.g. 9.99 EUR) goes to "Needs review"
+   with the BAM equivalent prefilled.
 2. Every notification is written to the local `raw_notifications` table **unconditionally** — before
    any parsing happens — so a failed or changed format never means a lost transaction.
-3. `TransactionParser` tries to extract amount/balance from "Nova transakcija" notifications. On a
+3. The bank's parser tries to extract the amount (and, for Intesa, the balance) from its transaction notifications. On a
    match, a `transactions` row is created. On a mismatch (wrong wording, unexpected currency, bad
    number), the raw row is flagged `NEEDS_REVIEW` with the reason attached, visible in the app's
    "Needs review" screen.
@@ -82,6 +88,9 @@ connected over adb:
 ```
 # A fake transaction through the real ingest path: adds a row (delete it after) and notifies.
 adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker --es amount 12,50
+
+# Fake a UniCredit or Raiffeisen push instead (their amounts use a dot).
+adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker --es bank raiffeisen --es amount 12.50
 
 # Re-notify an existing transaction instead; writes nothing.
 adb shell am broadcast -a com.catovicajdin.expensetracker.debug.FAKE_TRANSACTION -p com.catovicajdin.expensetracker --el transaction_id 42
