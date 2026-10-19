@@ -8,6 +8,7 @@ import com.catovicajdin.expensetracker.data.CategorizedSourceText
 import com.catovicajdin.expensetracker.data.CategoryTotal
 import com.catovicajdin.expensetracker.data.DuplicateGroup
 import com.catovicajdin.expensetracker.data.TransactionRow
+import com.catovicajdin.expensetracker.data.backup.ExportRow
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -78,6 +79,26 @@ interface TransactionDao {
         """
     )
     suspend fun byIdWithSource(id: Long): TransactionRow?
+
+    /** Every transaction, oldest first, for the CSV export. Manual rows' placeholder text is left out of details. */
+    @Query(
+        """
+        SELECT transactions.postedAt, transactions.amount, transactions.currency,
+            categories.name AS category,
+            (
+                SELECT GROUP_CONCAT(tags.name, '; ') FROM transaction_tags
+                JOIN tags ON tags.id = transaction_tags.tagId
+                WHERE transaction_tags.transactionId = transactions.id
+            ) AS tags,
+            raw_notifications.packageName AS source,
+            CASE WHEN raw_notifications.packageName = 'manual' THEN '' ELSE raw_notifications.body END AS details
+        FROM transactions
+        JOIN raw_notifications ON raw_notifications.id = transactions.rawNotificationId
+        LEFT JOIN categories ON categories.id = transactions.categoryId
+        ORDER BY transactions.postedAt
+        """
+    )
+    suspend fun exportRows(): List<ExportRow>
 
     @Query("SELECT * FROM transactions ORDER BY postedAt DESC LIMIT :limit")
     fun recent(limit: Int): Flow<List<TransactionEntity>>
