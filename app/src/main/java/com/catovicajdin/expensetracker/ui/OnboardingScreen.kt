@@ -27,7 +27,7 @@ fun OnboardingScreen(onRequestNotificationAccess: () -> Unit) {
             modifier = Modifier.padding(top = 16.dp),
         )
         Text(
-            "Expense Tracker reads transaction alerts from your Intesa Mobile app's notifications - nothing else. No bank credentials, no network calls, no data leaving your phone.",
+            "Expense Tracker reads transaction alerts from your bank app's notifications (Intesa, UniCredit or Raiffeisen) - nothing else. No bank credentials, no network calls, no data leaving your phone.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 12.dp),

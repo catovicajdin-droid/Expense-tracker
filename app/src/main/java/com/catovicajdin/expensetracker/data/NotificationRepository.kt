@@ -3,8 +3,8 @@ package com.catovicajdin.expensetracker.data
 import com.catovicajdin.expensetracker.Constants
 import com.catovicajdin.expensetracker.data.entity.RawNotificationEntity
 import com.catovicajdin.expensetracker.data.entity.TransactionEntity
+import com.catovicajdin.expensetracker.notifications.Bank
 import com.catovicajdin.expensetracker.notifications.ParseOutcome
-import com.catovicajdin.expensetracker.notifications.TransactionParser
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -34,14 +34,16 @@ class NotificationRepository(private val db: AppDatabase) {
         ingestLock.withLock { ingestLocked(packageName, title, body, postedAt) }
 
     private suspend fun ingestLocked(packageName: String, title: String, body: String, postedAt: Long): Long? {
-        if (isDuplicate(packageName, title, body, postedAt)) return null
+        val bank = Bank.fromPackage(packageName)
+        if (isDuplicate(bank, packageName, title, body, postedAt)) return null
 
-        val outcome = TransactionParser.parse(title, body)
+        val outcome = bank?.parser?.parse(title, body)
+            ?: ParseOutcome.Failure("No parser for package '$packageName'")
 
         val status = when (outcome) {
             is ParseOutcome.Success -> "PARSED"
             is ParseOutcome.Failure ->
-                if (title.trim() == Constants.NOTIFICATION_TITLE_TRANSACTION) "NEEDS_REVIEW" else "IGNORED"
+                if (bank?.parser?.isTransactionTitle(title) == true) "NEEDS_REVIEW" else "IGNORED"
         }
         val failureReason = (outcome as? ParseOutcome.Failure)?.reason
 
@@ -64,7 +66,7 @@ class NotificationRepository(private val db: AppDatabase) {
                     rawNotificationId = rawId,
                     amount = t.amount,
                     currency = t.currency,
-                    availableBalance = t.availableBalance,
+                    availableBalance = t.availableBalance ?: 0.0,
                     postedAt = postedAt,
                 )
             )
@@ -73,18 +75,17 @@ class NotificationRepository(private val db: AppDatabase) {
     }
 
     /**
-     * The same notification reaches the listener more than once - Android redelivers, and the bank
+     * The same notification reaches the listener more than once - Android redelivers, and Intesa
      * re-posts its whole set with fresh postTimes, which is what produced batches of duplicates
      * hours apart from one another.
      *
-     * So identity here is the notification's text, not when it arrived. That's sound because the
-     * body carries the resulting account balance: two genuinely separate transactions would have to
-     * share an amount *and* leave the balance at exactly the same figure to collide. The window
-     * only bounds how far back to look, generously enough to cover a re-post of anything still
-     * sitting in the shade.
+     * So identity here is the notification's text, not when it arrived. For Intesa that's sound
+     * because the body carries the resulting account balance: two genuinely separate transactions
+     * would have to share an amount *and* leave the balance at exactly the same figure to collide.
+     * Banks without a balance in the text get a much shorter window (see [Bank.dedupWindowMillis]).
      */
-    private suspend fun isDuplicate(packageName: String, title: String, body: String, postedAt: Long): Boolean {
-        val windowMillis = 7L * 24 * 60 * 60 * 1000
+    private suspend fun isDuplicate(bank: Bank?, packageName: String, title: String, body: String, postedAt: Long): Boolean {
+        val windowMillis = bank?.dedupWindowMillis ?: Bank.INTESA.dedupWindowMillis
         return db.rawNotificationDao().hasMatching(
             packageName = packageName,
             title = title,

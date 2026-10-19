@@ -3,7 +3,6 @@ package com.catovicajdin.expensetracker.notifications
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import com.catovicajdin.expensetracker.Constants
 import com.catovicajdin.expensetracker.data.AppDatabase
 import com.catovicajdin.expensetracker.data.NotificationRepository
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +11,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
+/**
+ * Reads every supported bank's pushes, not just Intesa's. The name stays because notification access
+ * is granted to this exact component - renaming it would silently revoke access on existing installs.
+ */
 class IntesaNotificationListenerService : NotificationListenerService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -23,7 +26,8 @@ class IntesaNotificationListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (sbn.packageName != Constants.INTESA_PACKAGE_NAME) return
+        val bank = Bank.fromPackage(sbn.packageName) ?: return
+        if (bank !in BankPreferences.enabled(applicationContext)) return
 
         // An app posting several notifications also posts a summary standing for the group, and it
         // usually repeats one of their bodies - which would read here as a second transaction
